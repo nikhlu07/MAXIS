@@ -1,0 +1,1446 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;600;700&display=swap');
+
+  :root {
+    --void: #000000;
+    --surface: #0A0A0A;
+    --surface-2: #111111;
+    --surface-3: #1A1A1A;
+    --accent: #F6FF00;
+    --accent-dim: rgba(246,255,0,0.12);
+    --accent-glow: rgba(246,255,0,0.25);
+    --white: #FFFFFF;
+    --gray-1: #F2F2F2;
+    --gray-2: #9CA3AF;
+    --gray-3: #555555;
+    --gray-4: #333333;
+    --gray-5: #1C1C1C;
+    --hud: #2A2A2A;
+    --font-sans: 'DM Sans', sans-serif;
+    --font-mono: 'Space Mono', monospace;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--void);
+    color: var(--white);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.6;
+  }
+
+  .ds-wrap {
+    background: var(--void);
+    max-width: 900px;
+    margin: 0 auto;
+    padding: 0 0 80px;
+  }
+
+  /* --- HEADER --- */
+  .ds-header {
+    border-bottom: 1px solid var(--hud);
+    padding: 40px 40px 32px;
+    position: relative;
+  }
+  .ds-header::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0;
+    width: 18px; height: 18px;
+    border-top: 1px solid var(--accent);
+    border-left: 1px solid var(--accent);
+  }
+  .ds-header::after {
+    content: '';
+    position: absolute;
+    top: 0; right: 0;
+    width: 18px; height: 18px;
+    border-top: 1px solid var(--accent);
+    border-right: 1px solid var(--accent);
+  }
+  .ds-logo {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.08em;
+    margin-bottom: 20px;
+  }
+  .ds-logo span { color: var(--gray-2); }
+  .ds-title {
+    font-family: var(--font-sans);
+    font-size: 36px;
+    font-weight: 700;
+    letter-spacing: -0.02em;
+    color: var(--white);
+    line-height: 1.1;
+  }
+  .ds-title em {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .ds-subtitle {
+    color: var(--gray-2);
+    font-size: 13px;
+    margin-top: 10px;
+    font-family: var(--font-mono);
+  }
+  .ds-hud-line {
+    position: absolute;
+    bottom: 0; left: 40px; right: 40px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+  }
+  .hud-dot {
+    width: 5px; height: 5px;
+    background: var(--accent);
+  }
+  .hud-text {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    letter-spacing: 0.12em;
+  }
+
+  /* --- SECTION --- */
+  .ds-section {
+    padding: 40px 40px 0;
+    border-bottom: 1px solid var(--hud);
+  }
+  .ds-section:last-child { border-bottom: none; }
+  .section-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .section-label::before {
+    content: '';
+    display: inline-block;
+    width: 6px; height: 6px;
+    background: var(--accent);
+  }
+  .section-title {
+    font-size: 22px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 28px;
+    letter-spacing: -0.01em;
+  }
+
+  /* --- COLOR PALETTE --- */
+  .color-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 0;
+    margin-bottom: 24px;
+  }
+  .color-chip {
+    aspect-ratio: 1;
+    position: relative;
+    cursor: default;
+  }
+  .color-chip:first-child { position: relative; }
+  .color-chip-accent {
+    position: relative;
+    outline: 2px solid var(--accent);
+    outline-offset: -2px;
+    z-index: 1;
+  }
+  .color-chip-accent::after {
+    content: '✦';
+    position: absolute;
+    bottom: 4px; right: 5px;
+    font-size: 8px;
+    color: var(--void);
+    font-family: var(--font-mono);
+  }
+  .color-row {
+    margin-bottom: 6px;
+  }
+  .color-row-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    margin-bottom: 4px;
+    text-transform: uppercase;
+    letter-spacing: 0.1em;
+  }
+  .color-info-row {
+    display: flex;
+    align-items: center;
+    gap: 24px;
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--hud);
+  }
+  .color-swatch-large {
+    width: 56px; height: 56px;
+    flex-shrink: 0;
+  }
+  .color-meta { flex: 1; }
+  .color-name {
+    font-weight: 700;
+    font-size: 15px;
+    color: var(--white);
+    margin-bottom: 2px;
+  }
+  .color-hex {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--accent);
+  }
+  .color-desc {
+    font-size: 12px;
+    color: var(--gray-2);
+    margin-top: 4px;
+  }
+  .color-role {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--gray-3);
+    text-transform: uppercase;
+    align-self: flex-start;
+    padding-top: 4px;
+  }
+
+  /* --- TYPOGRAPHY --- */
+  .type-block {
+    margin-bottom: 28px;
+    padding-bottom: 28px;
+    border-bottom: 1px solid var(--gray-5);
+    display: grid;
+    grid-template-columns: 160px 1fr;
+    gap: 0 32px;
+    align-items: start;
+  }
+  .type-block:last-child { border-bottom: none; margin-bottom: 0; }
+  .type-meta { }
+  .type-meta-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+  .type-meta-spec {
+    font-size: 11px;
+    color: var(--gray-2);
+    line-height: 1.8;
+    font-family: var(--font-mono);
+  }
+  .type-preview-h1 {
+    font-family: var(--font-sans);
+    font-size: 48px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.03em;
+    line-height: 1;
+  }
+  .type-preview-h2 {
+    font-family: var(--font-sans);
+    font-size: 32px;
+    font-weight: 700;
+    color: var(--white);
+    letter-spacing: -0.02em;
+  }
+  .type-preview-h3 {
+    font-family: var(--font-sans);
+    font-size: 20px;
+    font-weight: 600;
+    color: var(--white);
+    letter-spacing: -0.01em;
+  }
+  .type-preview-body {
+    font-family: var(--font-sans);
+    font-size: 15px;
+    font-weight: 400;
+    color: var(--gray-2);
+    line-height: 1.7;
+    max-width: 480px;
+  }
+  .type-preview-mono {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+  }
+  .type-preview-caption {
+    font-family: var(--font-sans);
+    font-size: 12px;
+    color: var(--gray-3);
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+  }
+
+  /* --- COMPONENTS --- */
+  .comp-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 24px;
+    margin-bottom: 24px;
+  }
+  .comp-single { margin-bottom: 24px; }
+
+  .comp-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 12px;
+  }
+
+  /* Buttons */
+  .btn-primary {
+    display: inline-flex;
+    align-items: center;
+    justify-content: space-between;
+    background: var(--accent);
+    color: var(--void);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+    padding: 13px 16px 13px 20px;
+    border: none;
+    cursor: pointer;
+    min-width: 200px;
+    gap: 24px;
+  }
+  .btn-primary .btn-arrow {
+    width: 0; height: 0;
+    border-top: 5px solid transparent;
+    border-bottom: 5px solid transparent;
+    border-left: 8px solid var(--void);
+    flex-shrink: 0;
+  }
+  .btn-ghost {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    color: var(--white);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 13px 20px;
+    border: 1px solid var(--gray-3);
+    cursor: pointer;
+    min-width: 200px;
+  }
+  .btn-accent-outline {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: transparent;
+    color: var(--accent);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 13px 20px;
+    border: 1px solid var(--accent);
+    cursor: pointer;
+    min-width: 200px;
+  }
+  .btn-disabled {
+    display: inline-flex;
+    align-items: center;
+    gap: 10px;
+    background: var(--gray-5);
+    color: var(--gray-3);
+    font-family: var(--font-sans);
+    font-size: 13px;
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    padding: 13px 20px;
+    border: none;
+    cursor: not-allowed;
+    min-width: 200px;
+    opacity: 0.6;
+  }
+
+  /* Cards */
+  .feat-card {
+    background: linear-gradient(160deg, var(--surface-2) 0%, var(--void) 100%);
+    border-top: 1px solid var(--hud);
+    padding: 24px;
+    position: relative;
+  }
+  .feat-card::before {
+    content: '';
+    position: absolute;
+    top: -1px; left: -1px;
+    width: 12px; height: 12px;
+    border-top: 1px solid var(--accent);
+    border-left: 1px solid var(--accent);
+  }
+  .feat-card-icon {
+    width: 36px; height: 36px;
+    margin-bottom: 16px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  .feat-card-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: var(--white);
+    margin-bottom: 8px;
+    letter-spacing: -0.01em;
+  }
+  .feat-card-body {
+    font-size: 13px;
+    color: var(--gray-2);
+    line-height: 1.6;
+  }
+  .feat-card-tag {
+    display: inline-block;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    color: var(--accent);
+    background: var(--accent-dim);
+    padding: 4px 10px;
+    margin-top: 14px;
+  }
+
+  /* Status badges */
+  .badge-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-bottom: 8px;
+  }
+  .badge {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    padding: 5px 12px;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+  }
+  .badge::before {
+    content: '';
+    width: 5px; height: 5px;
+    border-radius: 0;
+    flex-shrink: 0;
+  }
+  .badge-active { color: var(--accent); border: 1px solid var(--accent); background: var(--accent-dim); }
+  .badge-active::before { background: var(--accent); }
+  .badge-connected { color: #4ADE80; border: 1px solid #4ADE80; background: rgba(74,222,128,0.08); }
+  .badge-connected::before { background: #4ADE80; }
+  .badge-warn { color: #FB923C; border: 1px solid #FB923C; background: rgba(251,146,60,0.08); }
+  .badge-warn::before { background: #FB923C; }
+  .badge-error { color: #F87171; border: 1px solid #F87171; background: rgba(248,113,113,0.08); }
+  .badge-error::before { background: #F87171; }
+  .badge-neutral { color: var(--gray-2); border: 1px solid var(--gray-4); background: transparent; }
+  .badge-neutral::before { background: var(--gray-3); }
+
+  /* Input */
+  .input-demo {
+    background: var(--surface-2);
+    border: 1px solid var(--hud);
+    color: var(--white);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    width: 100%;
+    outline: none;
+  }
+  .input-demo:focus {
+    border-color: var(--accent);
+    background: var(--surface-3);
+  }
+  .input-demo::placeholder { color: var(--gray-3); }
+  .input-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-2);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    margin-bottom: 6px;
+    display: block;
+  }
+  .input-active {
+    background: var(--surface-2);
+    border: 1px solid var(--accent);
+    color: var(--white);
+    font-family: var(--font-mono);
+    font-size: 13px;
+    padding: 12px 16px;
+    width: 100%;
+    outline: none;
+  }
+  .input-wrap { margin-bottom: 16px; }
+
+  /* Dropdown */
+  .dropdown-demo {
+    background: var(--white);
+    color: var(--void);
+    font-family: var(--font-mono);
+    font-size: 12px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    padding: 12px 16px;
+    border: none;
+    width: 100%;
+    appearance: none;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M0 0L5 6L10 0H0Z' fill='black'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 14px center;
+    padding-right: 36px;
+  }
+
+  /* HUD Elements */
+  .hud-demo {
+    position: relative;
+    background: var(--surface-2);
+    padding: 28px;
+    margin-bottom: 8px;
+  }
+  .hud-corner-tl, .hud-corner-tr, .hud-corner-bl, .hud-corner-br {
+    position: absolute;
+    width: 14px; height: 14px;
+  }
+  .hud-corner-tl { top: 0; left: 0; border-top: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+  .hud-corner-tr { top: 0; right: 0; border-top: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+  .hud-corner-bl { bottom: 0; left: 0; border-bottom: 1px solid var(--accent); border-left: 1px solid var(--accent); }
+  .hud-corner-br { bottom: 0; right: 0; border-bottom: 1px solid var(--accent); border-right: 1px solid var(--accent); }
+  .hud-content {
+    text-align: center;
+  }
+  .hud-value {
+    font-family: var(--font-mono);
+    font-size: 28px;
+    color: var(--accent);
+    font-weight: 700;
+  }
+  .hud-sublabel {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: 4px;
+  }
+
+  /* Grid Lines Demo */
+  .grid-line-demo {
+    padding: 12px 0;
+    border-top: 1px solid var(--hud);
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .grid-micro {
+    width: 6px; height: 6px;
+    border: 1px solid var(--accent);
+    flex-shrink: 0;
+  }
+  .grid-micro-fill {
+    width: 6px; height: 6px;
+    background: var(--accent);
+    flex-shrink: 0;
+  }
+  .grid-tri {
+    width: 0; height: 0;
+    border-top: 4px solid transparent;
+    border-bottom: 4px solid transparent;
+    border-left: 7px solid var(--gray-3);
+    flex-shrink: 0;
+  }
+  .grid-colon {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--gray-3);
+    letter-spacing: -2px;
+  }
+  .grid-line-text {
+    font-family: var(--font-mono);
+    font-size: 11px;
+    color: var(--gray-2);
+    letter-spacing: 0.1em;
+  }
+
+  /* Diamond */
+  .diamond-wrap {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    padding: 48px 0 40px;
+    position: relative;
+  }
+  .diamond-outer {
+    width: 140px;
+    height: 140px;
+    transform: rotate(45deg);
+    border: 2px solid var(--accent);
+    background: linear-gradient(135deg, rgba(246,255,0,0.06) 0%, transparent 100%);
+    position: relative;
+    box-shadow: 0 0 40px 8px rgba(246,255,0,0.15), inset 0 0 20px rgba(246,255,0,0.05);
+  }
+  .diamond-inner {
+    position: absolute;
+    inset: 20px;
+    border: 1px solid rgba(246,255,0,0.3);
+  }
+  .diamond-inner-2 {
+    position: absolute;
+    inset: 36px;
+    background: var(--accent);
+    opacity: 0.9;
+  }
+  .diamond-label {
+    position: absolute;
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--accent);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    bottom: 12px;
+    left: 50%;
+    transform: translateX(-50%);
+    white-space: nowrap;
+    z-index: 10;
+  }
+  .diamond-cross-h {
+    position: absolute;
+    top: 50%; left: -40px; right: -40px;
+    height: 1px;
+    background: var(--hud);
+    transform: translateY(-50%);
+    z-index: -1;
+  }
+  .diamond-cross-v {
+    position: absolute;
+    left: 50%; top: -40px; bottom: -40px;
+    width: 1px;
+    background: var(--hud);
+    transform: translateX(-50%);
+    z-index: -1;
+  }
+
+  /* Dot map */
+  .dot-map-wrap {
+    padding: 24px 0;
+    overflow: hidden;
+  }
+  .dot-map-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+    text-transform: uppercase;
+  }
+
+  /* Nav demo */
+  .nav-demo {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--hud);
+    padding: 0 0 16px;
+    gap: 28px;
+    margin-bottom: 20px;
+  }
+  .nav-logo {
+    font-family: var(--font-mono);
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--accent);
+    letter-spacing: 0.05em;
+    margin-right: auto;
+  }
+  .nav-link {
+    font-size: 13px;
+    color: var(--white);
+    text-decoration: none;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .nav-link-inactive {
+    font-size: 13px;
+    color: var(--gray-2);
+    text-decoration: none;
+    letter-spacing: 0.04em;
+  }
+  .nav-link-active {
+    font-size: 13px;
+    color: var(--accent);
+    text-decoration: none;
+    font-weight: 700;
+    letter-spacing: 0.04em;
+    position: relative;
+  }
+  .nav-link-active::after {
+    content: '';
+    position: absolute;
+    bottom: -18px; left: 0; right: 0;
+    height: 2px;
+    background: var(--accent);
+  }
+
+  /* Spacing section bottom */
+  .section-bottom { padding-bottom: 40px; }
+
+  /* Progress */
+  .progress-wrap { margin-bottom: 16px; }
+  .progress-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 8px;
+  }
+  .progress-title { font-size: 12px; color: var(--gray-2); font-family: var(--font-mono); letter-spacing: 0.1em; }
+  .progress-val { font-size: 12px; color: var(--accent); font-family: var(--font-mono); font-weight: 700; }
+  .progress-track {
+    width: 100%;
+    height: 2px;
+    background: var(--hud);
+    position: relative;
+  }
+  .progress-fill {
+    height: 2px;
+    background: var(--accent);
+    position: relative;
+  }
+  .progress-fill::after {
+    content: '';
+    position: absolute;
+    right: -1px; top: -2px;
+    width: 6px; height: 6px;
+    background: var(--accent);
+  }
+
+  /* Table */
+  .data-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 13px;
+  }
+  .data-table th {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    text-align: left;
+    padding: 8px 16px;
+    border-bottom: 1px solid var(--hud);
+    font-weight: 400;
+  }
+  .data-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--gray-5);
+    color: var(--gray-2);
+    vertical-align: middle;
+  }
+  .data-table tr:hover td { background: var(--surface-2); }
+  .data-table .td-primary { color: var(--white); font-weight: 600; }
+  .data-table .td-accent { color: var(--accent); font-family: var(--font-mono); font-size: 12px; }
+  .data-table .td-mono { font-family: var(--font-mono); font-size: 12px; }
+
+  /* Tooltip */
+  .tooltip-demo {
+    display: inline-flex;
+    align-items: center;
+    gap: 8px;
+    position: relative;
+  }
+  .tooltip-box {
+    background: var(--surface-3);
+    border: 1px solid var(--hud);
+    border-left: 2px solid var(--accent);
+    padding: 10px 14px;
+    font-size: 12px;
+    color: var(--gray-1);
+    font-family: var(--font-mono);
+    max-width: 260px;
+    line-height: 1.5;
+  }
+  .tooltip-title {
+    font-size: 11px;
+    color: var(--accent);
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    margin-bottom: 4px;
+  }
+
+  /* List */
+  .hud-list { list-style: none; }
+  .hud-list li {
+    display: flex;
+    align-items: flex-start;
+    gap: 10px;
+    padding: 8px 0;
+    border-bottom: 1px solid var(--gray-5);
+    font-size: 13px;
+    color: var(--gray-2);
+  }
+  .hud-list li:last-child { border-bottom: none; }
+  .hud-list-bullet {
+    width: 5px; height: 5px;
+    background: var(--accent);
+    flex-shrink: 0;
+    margin-top: 5px;
+  }
+
+  /* Spacing tokens */
+  .spacing-demo {
+    display: flex;
+    align-items: flex-end;
+    gap: 16px;
+    margin-bottom: 8px;
+  }
+  .sp-bar {
+    background: var(--accent);
+    width: 32px;
+    flex-shrink: 0;
+  }
+  .sp-label {
+    font-family: var(--font-mono);
+    font-size: 10px;
+    color: var(--gray-3);
+    letter-spacing: 0.1em;
+    text-align: center;
+    margin-top: 6px;
+  }
+  .sp-pair { text-align: center; }
+</style>
+</head>
+<body>
+<div class="ds-wrap">
+
+  <!-- HEADER -->
+  <div class="ds-header">
+    <div class="ds-logo">cyber<span> : </span>design_system<span> // </span>v2.0</div>
+    <div class="ds-title">HUD DESIGN<br><em>SYSTEM</em></div>
+    <div class="ds-subtitle">// SIG_COLOR: #F6FF00 — VOID ARCHITECTURE — ZERO RADIUS</div>
+    <div class="ds-hud-line">
+      <div class="hud-dot"></div>
+      <div class="hud-text">SPEC_REV :: 2.0 ▷ BUILD_TARGET :: PRODUCTION ▷ STATUS :: ACTIVE</div>
+    </div>
+  </div>
+
+  <!-- 01. COLOR -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">01</div>
+    <div class="section-title">Color Palette</div>
+
+    <div class="color-info-row">
+      <div class="color-swatch-large" style="background:#F6FF00;box-shadow:0 0 24px 4px rgba(246,255,0,0.35);"></div>
+      <div class="color-meta">
+        <div class="color-name">SIGNATURE YELLOW</div>
+        <div class="color-hex">#F6FF00</div>
+        <div class="color-desc">Primary accent — CTAs, active states, focal graphics, HUD markers. Acts as the sole light source against the void.</div>
+      </div>
+      <div class="color-role">PRIMARY<br>ACCENT</div>
+    </div>
+
+    <div class="color-info-row">
+      <div class="color-swatch-large" style="background:#000000;border:1px solid #2A2A2A;"></div>
+      <div class="color-meta">
+        <div class="color-name">THE VOID</div>
+        <div class="color-hex">#000000 / #050505</div>
+        <div class="color-desc">Pure black background. The absolute absence from which the accent emerges. Never used for surfaces.</div>
+      </div>
+      <div class="color-role">BACKGROUND</div>
+    </div>
+
+    <div class="color-info-row">
+      <div class="color-swatch-large" style="background:linear-gradient(160deg,#111 0%,#000 100%);border:1px solid #2A2A2A;"></div>
+      <div class="color-meta">
+        <div class="color-name">SURFACE GRADIENT</div>
+        <div class="color-hex">#111111 → #000000</div>
+        <div class="color-desc">Card and panel surfaces. Subtle depth without solid gray masses. Always gradient, never flat.</div>
+      </div>
+      <div class="color-role">SURFACE</div>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:8px;">
+      <div>
+        <div class="color-info-row" style="border-bottom:1px solid var(--gray-5);">
+          <div class="color-swatch-large" style="background:#FFFFFF;"></div>
+          <div class="color-meta">
+            <div class="color-name">PURE WHITE</div>
+            <div class="color-hex">#FFFFFF</div>
+            <div class="color-desc">Headings, active links, icons.</div>
+          </div>
+        </div>
+        <div class="color-info-row" style="border-bottom:none;">
+          <div class="color-swatch-large" style="background:#9CA3AF;"></div>
+          <div class="color-meta">
+            <div class="color-name">HUD GRAY</div>
+            <div class="color-hex">#9CA3AF</div>
+            <div class="color-desc">Body copy, descriptions, inactive.</div>
+          </div>
+        </div>
+      </div>
+      <div>
+        <div class="color-info-row" style="border-bottom:1px solid var(--gray-5);">
+          <div class="color-swatch-large" style="background:#333333;"></div>
+          <div class="color-meta">
+            <div class="color-name">STRUCTURAL LINE</div>
+            <div class="color-hex">#333333 / #27272A</div>
+            <div class="color-desc">1px grid dividers, corner brackets.</div>
+          </div>
+        </div>
+        <div class="color-info-row" style="border-bottom:none;">
+          <div class="color-swatch-large" style="background:rgba(246,255,0,0.12);border:1px solid rgba(246,255,0,0.3);"></div>
+          <div class="color-meta">
+            <div class="color-name">ACCENT DIM</div>
+            <div class="color-hex">rgba(F6FF00, 12%)</div>
+            <div class="color-desc">Active badge backgrounds, tinted fills.</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Ramp scale -->
+    <div style="margin-top:8px;">
+      <div class="color-row-label">ACCENT OPACITY SCALE</div>
+      <div class="color-grid">
+        <div class="color-chip" style="background:rgba(246,255,0,0.05);border:1px solid var(--hud);aspect-ratio:2/1;"></div>
+        <div class="color-chip" style="background:rgba(246,255,0,0.12);border:1px solid var(--hud);aspect-ratio:2/1;"></div>
+        <div class="color-chip" style="background:rgba(246,255,0,0.25);border:1px solid var(--hud);aspect-ratio:2/1;"></div>
+        <div class="color-chip" style="background:rgba(246,255,0,0.45);border:1px solid var(--hud);aspect-ratio:2/1;"></div>
+        <div class="color-chip" style="background:rgba(246,255,0,0.65);border:1px solid var(--hud);aspect-ratio:2/1;"></div>
+        <div class="color-chip" style="background:rgba(246,255,0,0.85);border:1px solid var(--hud);aspect-ratio:2/1;"></div>
+        <div class="color-chip color-chip-accent" style="background:#F6FF00;aspect-ratio:2/1;"></div>
+      </div>
+      <div style="display:flex;justify-content:space-between;margin-top:4px;">
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--gray-3);">5% — glass tints</span>
+        <span style="font-family:var(--font-mono);font-size:10px;color:var(--accent);">100% — full accent</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- 02. TYPOGRAPHY -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">02</div>
+    <div class="section-title">Typography</div>
+
+    <div class="type-block">
+      <div class="type-meta">
+        <div class="type-meta-label">DISPLAY / H1</div>
+        <div class="type-meta-spec">DM Sans<br>48px / 700<br>tracking: -0.03em<br>lh: 1.0<br>color: #FFFFFF</div>
+      </div>
+      <div class="type-preview-h1">ZERO<br>LATENCY</div>
+    </div>
+
+    <div class="type-block">
+      <div class="type-meta">
+        <div class="type-meta-label">HEADING / H2</div>
+        <div class="type-meta-spec">DM Sans<br>32px / 700<br>tracking: -0.02em<br>color: #FFFFFF</div>
+      </div>
+      <div class="type-preview-h2">Encrypted by Default</div>
+    </div>
+
+    <div class="type-block">
+      <div class="type-meta">
+        <div class="type-meta-label">HEADING / H3</div>
+        <div class="type-meta-spec">DM Sans<br>20px / 600<br>tracking: -0.01em<br>color: #FFFFFF</div>
+      </div>
+      <div class="type-preview-h3">256-bit AES Encryption</div>
+    </div>
+
+    <div class="type-block">
+      <div class="type-meta">
+        <div class="type-meta-label">BODY COPY</div>
+        <div class="type-meta-spec">DM Sans<br>15px / 400<br>lh: 1.7<br>color: #9CA3AF</div>
+      </div>
+      <div class="type-preview-body">Your connection is routed through a hardened global network. No logs, no leaks, no traces. The system sees only noise.</div>
+    </div>
+
+    <div class="type-block">
+      <div class="type-meta">
+        <div class="type-meta-label">MONOSPACE / UI</div>
+        <div class="type-meta-spec">Space Mono<br>13px / 400<br>tracking: 0.05em<br>color: #F6FF00</div>
+      </div>
+      <div class="type-preview-mono">cyber:vpn // node_id::AU-SYD-07 // ping::4ms</div>
+    </div>
+
+    <div class="type-block">
+      <div class="type-meta">
+        <div class="type-meta-label">CAPTION / LABEL</div>
+        <div class="type-meta-spec">DM Sans<br>12px / 400<br>tracking: 0.08em<br>ALL CAPS<br>color: #555</div>
+      </div>
+      <div class="type-preview-caption">Section Identifier · Data Class · Protocol Tag</div>
+    </div>
+  </div>
+
+  <!-- 03. BUTTONS -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">03</div>
+    <div class="section-title">Buttons &amp; Controls</div>
+
+    <div class="comp-label">PRIMARY — ACCENT SOLID</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;">
+      <button class="btn-primary">CONNECT NOW <span class="btn-arrow"></span></button>
+      <button class="btn-primary" style="min-width:160px;">GET STARTED <span class="btn-arrow"></span></button>
+    </div>
+
+    <div class="comp-label">SECONDARY — GHOST &amp; OUTLINE</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;">
+      <button class="btn-ghost">LEARN MORE</button>
+      <button class="btn-accent-outline">VIEW SPECS</button>
+    </div>
+
+    <div class="comp-label">DISABLED STATE</div>
+    <div style="display:flex;gap:16px;flex-wrap:wrap;margin-bottom:24px;">
+      <button class="btn-disabled">UNAVAILABLE</button>
+    </div>
+
+    <div class="comp-label">DROPDOWN SELECTOR</div>
+    <div style="width:220px;margin-bottom:24px;">
+      <select class="dropdown-demo">
+        <option>United States (NYC)</option>
+        <option>Germany (FRA)</option>
+        <option>Japan (TYO)</option>
+        <option>Australia (SYD)</option>
+      </select>
+    </div>
+
+    <div class="comp-label">TEXT INPUTS</div>
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:16px;margin-bottom:8px;">
+      <div class="input-wrap">
+        <label class="input-label">DEFAULT STATE</label>
+        <input class="input-demo" type="text" placeholder="Enter server address..." />
+      </div>
+      <div class="input-wrap">
+        <label class="input-label">FOCUS / ACTIVE STATE</label>
+        <input class="input-active" type="text" value="192.168.0.1:8443" />
+      </div>
+    </div>
+  </div>
+
+  <!-- 04. STATUS BADGES -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">04</div>
+    <div class="section-title">Badges &amp; Status</div>
+
+    <div class="badge-row" style="margin-bottom:16px;">
+      <span class="badge badge-active">ACTIVE</span>
+      <span class="badge badge-connected">CONNECTED</span>
+      <span class="badge badge-warn">DEGRADED</span>
+      <span class="badge badge-error">OFFLINE</span>
+      <span class="badge badge-neutral">STANDBY</span>
+    </div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-top:24px;">
+      <div>
+        <div class="comp-label">PROGRESS INDICATORS</div>
+        <div class="progress-wrap">
+          <div class="progress-header"><span class="progress-title">ENCRYPTION LEVEL</span><span class="progress-val">94%</span></div>
+          <div class="progress-track"><div class="progress-fill" style="width:94%;"></div></div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-header"><span class="progress-title">BANDWIDTH</span><span class="progress-val">61%</span></div>
+          <div class="progress-track"><div class="progress-fill" style="width:61%;"></div></div>
+        </div>
+        <div class="progress-wrap">
+          <div class="progress-header"><span class="progress-title">NODE CAPACITY</span><span class="progress-val">28%</span></div>
+          <div class="progress-track"><div class="progress-fill" style="width:28%;"></div></div>
+        </div>
+      </div>
+      <div>
+        <div class="comp-label">HUD METRIC DISPLAY</div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px;">
+          <div class="hud-demo">
+            <div class="hud-corner-tl"></div>
+            <div class="hud-corner-tr"></div>
+            <div class="hud-corner-bl"></div>
+            <div class="hud-corner-br"></div>
+            <div class="hud-content"><div class="hud-value">4ms</div><div class="hud-sublabel">PING</div></div>
+          </div>
+          <div class="hud-demo">
+            <div class="hud-corner-tl"></div>
+            <div class="hud-corner-tr"></div>
+            <div class="hud-corner-bl"></div>
+            <div class="hud-corner-br"></div>
+            <div class="hud-content"><div class="hud-value">99.9</div><div class="hud-sublabel">UPTIME %</div></div>
+          </div>
+          <div class="hud-demo">
+            <div class="hud-corner-tl"></div>
+            <div class="hud-corner-tr"></div>
+            <div class="hud-corner-bl"></div>
+            <div class="hud-corner-br"></div>
+            <div class="hud-content"><div class="hud-value">256</div><div class="hud-sublabel">BIT AES</div></div>
+          </div>
+          <div class="hud-demo">
+            <div class="hud-corner-tl"></div>
+            <div class="hud-corner-tr"></div>
+            <div class="hud-corner-bl"></div>
+            <div class="hud-corner-br"></div>
+            <div class="hud-content"><div class="hud-value">0</div><div class="hud-sublabel">LOG POLICY</div></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 05. CARDS -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">05</div>
+    <div class="section-title">Feature Cards</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:0;border:1px solid var(--hud);border-right:none;">
+      <!-- Card 1 -->
+      <div class="feat-card" style="border-right:1px solid var(--hud);">
+        <div class="feat-card-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <circle cx="14" cy="14" r="12" stroke="white" stroke-width="1"/>
+            <ellipse cx="14" cy="14" rx="5" ry="12" stroke="white" stroke-width="1"/>
+            <line x1="2" y1="14" x2="26" y2="14" stroke="white" stroke-width="1"/>
+            <line x1="4" y1="8" x2="24" y2="8" stroke="white" stroke-width="1"/>
+            <line x1="4" y1="20" x2="24" y2="20" stroke="white" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="feat-card-title">Global Network</div>
+        <div class="feat-card-body">7,000+ servers across 118 countries. Optimized routing for maximum speed.</div>
+        <div class="feat-card-tag">7,000+ NODES</div>
+      </div>
+      <!-- Card 2 -->
+      <div class="feat-card" style="border-right:1px solid var(--hud);">
+        <div class="feat-card-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <path d="M14 3L5 7V14C5 19.25 9 24.17 14 25.5C19 24.17 23 19.25 23 14V7L14 3Z" stroke="white" stroke-width="1" fill="none"/>
+            <path d="M9 14L12 17L19 10" stroke="white" stroke-width="1.5"/>
+          </svg>
+        </div>
+        <div class="feat-card-title">Zero-Knowledge</div>
+        <div class="feat-card-body">No logs. No traces. Audited annually by independent security firms.</div>
+        <div class="feat-card-tag">AUDIT CERTIFIED</div>
+      </div>
+      <!-- Card 3 -->
+      <div class="feat-card">
+        <div class="feat-card-icon">
+          <svg width="28" height="28" viewBox="0 0 28 28" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <rect x="3" y="6" width="22" height="16" rx="0" stroke="white" stroke-width="1"/>
+            <path d="M8 12H14M8 16H12" stroke="white" stroke-width="1.5"/>
+            <circle cx="21" cy="10" r="2" stroke="white" stroke-width="1"/>
+          </svg>
+        </div>
+        <div class="feat-card-title">24/7 Support</div>
+        <div class="feat-card-body">Live chat and encrypted ticketing. Response time under 90 seconds guaranteed.</div>
+        <div class="feat-card-tag">&lt;90s RESPONSE</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 06. NAVIGATION -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">06</div>
+    <div class="section-title">Navigation &amp; Header</div>
+
+    <div style="background:var(--surface-2);padding:20px 24px;border:1px solid var(--hud);margin-bottom:8px;">
+      <div class="nav-demo">
+        <div class="nav-logo">cyber<span style="color:var(--gray-3);">:</span>vpn</div>
+        <a href="#" class="nav-link-active">Dashboard</a>
+        <a href="#" class="nav-link-inactive">Servers</a>
+        <a href="#" class="nav-link-inactive">Security</a>
+        <a href="#" class="nav-link-inactive">Billing</a>
+        <button class="btn-primary" style="min-width:auto;font-size:11px;padding:9px 14px 9px 18px;gap:12px;">CONNECT <span class="btn-arrow"></span></button>
+      </div>
+      <div style="font-family:var(--font-mono);font-size:10px;color:var(--gray-3);letter-spacing:0.15em;">
+        :: PAGE_CONTEXT ▷ ACTIVE_NODE :: AU-SYD-07 ▷ STATUS :: PROTECTED
+      </div>
+    </div>
+  </div>
+
+  <!-- 07. HUD GRID SYSTEM -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">07</div>
+    <div class="section-title">HUD Grid System</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+      <div>
+        <div class="comp-label">CORNER BRACKET TARGETS</div>
+        <div style="position:relative;border:1px solid var(--gray-5);padding:24px;display:flex;align-items:center;justify-content:center;min-height:100px;">
+          <div style="position:absolute;top:0;left:0;width:14px;height:14px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);"></div>
+          <div style="position:absolute;top:0;right:0;width:14px;height:14px;border-top:1px solid var(--accent);border-right:1px solid var(--accent);"></div>
+          <div style="position:absolute;bottom:0;left:0;width:14px;height:14px;border-bottom:1px solid var(--accent);border-left:1px solid var(--accent);"></div>
+          <div style="position:absolute;bottom:0;right:0;width:14px;height:14px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);"></div>
+          <span style="font-family:var(--font-mono);font-size:11px;color:var(--gray-3);letter-spacing:0.15em;">FOCAL ZONE</span>
+        </div>
+      </div>
+      <div>
+        <div class="comp-label">MICRO-ACCENT MARKERS</div>
+        <div class="grid-line-demo"><div class="grid-micro-fill"></div><span class="grid-line-text">ACTIVE ITEM / SELECTED STATE</span></div>
+        <div class="grid-line-demo"><div class="grid-micro"></div><span class="grid-line-text">INACTIVE ITEM / LIST MARKER</span></div>
+        <div class="grid-line-demo"><div class="grid-tri"></div><span class="grid-line-text">DIRECTIONAL INDICATOR ▷ ACTION</span></div>
+        <div class="grid-line-demo"><div class="grid-colon">::</div><span class="grid-line-text">TERMINAL PROMPT / DATA SEPARATOR</span></div>
+        <div class="grid-line-demo">
+          <div style="width:5px;height:5px;background:var(--accent);transform:rotate(45deg);flex-shrink:0;"></div>
+          <span class="grid-line-text">DIAMOND MARKER / FOCAL POINT</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="comp-label">STRUCTURAL GRID LINES — SECTION SEPARATOR</div>
+    <div style="border-top:1px solid var(--hud);padding:16px 0;display:flex;align-items:center;gap:12px;border-bottom:1px solid var(--hud);">
+      <div style="width:5px;height:5px;background:var(--accent);transform:rotate(45deg);flex-shrink:0;"></div>
+      <span style="font-family:var(--font-mono);font-size:10px;color:var(--gray-3);letter-spacing:0.2em;text-transform:uppercase;">SECTION_ID :: HERO_001 ▷ TYPE :: FULLWIDTH_BANNER</span>
+    </div>
+  </div>
+
+  <!-- 08. GRAPHIC ELEMENTS -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">08</div>
+    <div class="section-title">Graphic Elements</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;">
+      <div>
+        <div class="comp-label">THE FOCAL DIAMOND</div>
+        <div style="position:relative;border:1px solid var(--hud);overflow:hidden;background:var(--void);">
+          <div class="diamond-wrap">
+            <div class="diamond-cross-h"></div>
+            <div class="diamond-cross-v"></div>
+            <div class="diamond-outer">
+              <div class="diamond-inner"></div>
+              <div class="diamond-inner-2"></div>
+            </div>
+          </div>
+          <div class="diamond-label">:: FOCAL_ELEMENT_ALPHA ::</div>
+          <div style="position:absolute;top:0;left:0;width:10px;height:10px;border-top:1px solid var(--accent);border-left:1px solid var(--accent);"></div>
+          <div style="position:absolute;top:0;right:0;width:10px;height:10px;border-top:1px solid var(--accent);border-right:1px solid var(--accent);"></div>
+          <div style="position:absolute;bottom:0;left:0;width:10px;height:10px;border-bottom:1px solid var(--accent);border-left:1px solid var(--accent);"></div>
+          <div style="position:absolute;bottom:0;right:0;width:10px;height:10px;border-bottom:1px solid var(--accent);border-right:1px solid var(--accent);"></div>
+        </div>
+      </div>
+      <div>
+        <div class="comp-label">DOT MATRIX MAP (HEX GRID)</div>
+        <div style="border:1px solid var(--hud);padding:16px;background:var(--void);overflow:hidden;position:relative;">
+          <svg viewBox="0 0 300 180" width="100%" xmlns="http://www.w3.org/2000/svg">
+            <defs>
+              <radialGradient id="mapglow" cx="50%" cy="50%" r="50%">
+                <stop offset="0%" stop-color="#F6FF00" stop-opacity="0.25"/>
+                <stop offset="100%" stop-color="#F6FF00" stop-opacity="0"/>
+              </radialGradient>
+            </defs>
+            <ellipse cx="150" cy="90" rx="100" ry="60" fill="url(#mapglow)"/>
+            <!-- dot matrix pattern -->
+            <g fill="#333333">
+              <!-- row 1 -->
+              <circle cx="18" cy="18" r="1.5"/><circle cx="30" cy="18" r="1.5"/><circle cx="42" cy="18" r="1.5"/><circle cx="54" cy="18" r="1.5"/><circle cx="66" cy="18" r="1.5"/><circle cx="78" cy="18" r="1.5"/><circle cx="90" cy="18" r="1.5"/><circle cx="102" cy="18" r="1.5"/><circle cx="114" cy="18" r="1.5"/><circle cx="126" cy="18" r="1.5"/><circle cx="138" cy="18" r="1.5"/><circle cx="150" cy="18" r="1.5"/><circle cx="162" cy="18" r="1.5"/><circle cx="174" cy="18" r="1.5"/><circle cx="186" cy="18" r="1.5"/><circle cx="198" cy="18" r="1.5"/><circle cx="210" cy="18" r="1.5"/><circle cx="222" cy="18" r="1.5"/><circle cx="234" cy="18" r="1.5"/><circle cx="246" cy="18" r="1.5"/><circle cx="258" cy="18" r="1.5"/><circle cx="270" cy="18" r="1.5"/><circle cx="282" cy="18" r="1.5"/>
+              <!-- row 2 offset -->
+              <circle cx="24" cy="30" r="1.5"/><circle cx="36" cy="30" r="1.5"/><circle cx="48" cy="30" r="1.5"/><circle cx="60" cy="30" r="1.5"/><circle cx="72" cy="30" r="1.5"/><circle cx="84" cy="30" r="1.5"/><circle cx="96" cy="30" r="1.5"/><circle cx="108" cy="30" r="1.5"/><circle cx="120" cy="30" r="1.5"/><circle cx="132" cy="30" r="1.5"/><circle cx="144" cy="30" r="1.5"/><circle cx="156" cy="30" r="1.5"/><circle cx="168" cy="30" r="1.5"/><circle cx="180" cy="30" r="1.5"/><circle cx="192" cy="30" r="1.5"/><circle cx="204" cy="30" r="1.5"/><circle cx="216" cy="30" r="1.5"/><circle cx="228" cy="30" r="1.5"/><circle cx="240" cy="30" r="1.5"/><circle cx="252" cy="30" r="1.5"/><circle cx="264" cy="30" r="1.5"/><circle cx="276" cy="30" r="1.5"/>
+              <!-- row 3 -->
+              <circle cx="18" cy="42" r="1.5"/><circle cx="30" cy="42" r="1.5"/><circle cx="42" cy="42" r="1.5"/><circle cx="54" cy="42" r="1.5"/><circle cx="66" cy="42" r="1.5"/><circle cx="78" cy="42" r="1.5"/><circle cx="90" cy="42" r="1.5"/><circle cx="102" cy="42" r="1.5"/><circle cx="114" cy="42" r="1.5"/><circle cx="126" cy="42" r="1.5"/><circle cx="138" cy="42" r="1.5"/><circle cx="150" cy="42" r="1.5"/><circle cx="162" cy="42" r="1.5"/><circle cx="174" cy="42" r="1.5"/><circle cx="186" cy="42" r="1.5"/><circle cx="198" cy="42" r="1.5"/><circle cx="210" cy="42" r="1.5"/><circle cx="222" cy="42" r="1.5"/><circle cx="234" cy="42" r="1.5"/><circle cx="246" cy="42" r="1.5"/><circle cx="258" cy="42" r="1.5"/><circle cx="270" cy="42" r="1.5"/><circle cx="282" cy="42" r="1.5"/>
+              <!-- row 4 -->
+              <circle cx="24" cy="54" r="1.5"/><circle cx="36" cy="54" r="1.5"/><circle cx="48" cy="54" r="1.5"/><circle cx="60" cy="54" r="1.5"/><circle cx="72" cy="54" r="1.5"/><circle cx="84" cy="54" r="1.5"/><circle cx="96" cy="54" r="1.5"/><circle cx="108" cy="54" r="1.5"/><circle cx="120" cy="54" r="1.5"/><circle cx="132" cy="54" r="1.5"/><circle cx="144" cy="54" r="1.5"/><circle cx="156" cy="54" r="1.5"/><circle cx="168" cy="54" r="1.5"/><circle cx="180" cy="54" r="1.5"/><circle cx="192" cy="54" r="1.5"/><circle cx="204" cy="54" r="1.5"/><circle cx="216" cy="54" r="1.5"/><circle cx="228" cy="54" r="1.5"/><circle cx="240" cy="54" r="1.5"/><circle cx="252" cy="54" r="1.5"/><circle cx="264" cy="54" r="1.5"/><circle cx="276" cy="54" r="1.5"/>
+              <!-- row 5 -->
+              <circle cx="18" cy="66" r="1.5"/><circle cx="30" cy="66" r="1.5"/><circle cx="42" cy="66" r="1.5"/><circle cx="54" cy="66" r="1.5"/><circle cx="66" cy="66" r="1.5"/><circle cx="78" cy="66" r="1.5"/><circle cx="90" cy="66" r="1.5"/><circle cx="102" cy="66" r="1.5"/><circle cx="114" cy="66" r="1.5"/><circle cx="126" cy="66" r="1.5"/><circle cx="138" cy="66" r="1.5"/><circle cx="150" cy="66" r="1.5"/><circle cx="162" cy="66" r="1.5"/><circle cx="174" cy="66" r="1.5"/><circle cx="186" cy="66" r="1.5"/><circle cx="198" cy="66" r="1.5"/><circle cx="210" cy="66" r="1.5"/><circle cx="222" cy="66" r="1.5"/><circle cx="234" cy="66" r="1.5"/><circle cx="246" cy="66" r="1.5"/><circle cx="258" cy="66" r="1.5"/><circle cx="270" cy="66" r="1.5"/><circle cx="282" cy="66" r="1.5"/>
+              <!-- row 6 -->
+              <circle cx="24" cy="78" r="1.5"/><circle cx="36" cy="78" r="1.5"/><circle cx="48" cy="78" r="1.5"/><circle cx="60" cy="78" r="1.5"/><circle cx="72" cy="78" r="1.5"/><circle cx="84" cy="78" r="1.5"/><circle cx="96" cy="78" r="1.5"/><circle cx="108" cy="78" r="1.5"/><circle cx="120" cy="78" r="1.5"/><circle cx="132" cy="78" r="1.5"/><circle cx="144" cy="78" r="1.5"/><circle cx="156" cy="78" r="1.5"/><circle cx="168" cy="78" r="1.5"/><circle cx="180" cy="78" r="1.5"/><circle cx="192" cy="78" r="1.5"/><circle cx="204" cy="78" r="1.5"/><circle cx="216" cy="78" r="1.5"/><circle cx="228" cy="78" r="1.5"/><circle cx="240" cy="78" r="1.5"/><circle cx="252" cy="78" r="1.5"/><circle cx="264" cy="78" r="1.5"/><circle cx="276" cy="78" r="1.5"/>
+              <!-- row 7 -->
+              <circle cx="18" cy="90" r="1.5"/><circle cx="30" cy="90" r="1.5"/><circle cx="42" cy="90" r="1.5"/><circle cx="54" cy="90" r="1.5"/><circle cx="66" cy="90" r="1.5"/><circle cx="78" cy="90" r="1.5"/><circle cx="90" cy="90" r="1.5"/><circle cx="102" cy="90" r="1.5"/><circle cx="114" cy="90" r="1.5"/><circle cx="126" cy="90" r="1.5"/><circle cx="138" cy="90" r="1.5"/><circle cx="162" cy="90" r="1.5"/><circle cx="174" cy="90" r="1.5"/><circle cx="186" cy="90" r="1.5"/><circle cx="198" cy="90" r="1.5"/><circle cx="210" cy="90" r="1.5"/><circle cx="222" cy="90" r="1.5"/><circle cx="234" cy="90" r="1.5"/><circle cx="246" cy="90" r="1.5"/><circle cx="258" cy="90" r="1.5"/><circle cx="270" cy="90" r="1.5"/><circle cx="282" cy="90" r="1.5"/>
+              <!-- row 8 -->
+              <circle cx="24" cy="102" r="1.5"/><circle cx="36" cy="102" r="1.5"/><circle cx="48" cy="102" r="1.5"/><circle cx="60" cy="102" r="1.5"/><circle cx="72" cy="102" r="1.5"/><circle cx="84" cy="102" r="1.5"/><circle cx="96" cy="102" r="1.5"/><circle cx="108" cy="102" r="1.5"/><circle cx="120" cy="102" r="1.5"/><circle cx="132" cy="102" r="1.5"/><circle cx="144" cy="102" r="1.5"/><circle cx="156" cy="102" r="1.5"/><circle cx="168" cy="102" r="1.5"/><circle cx="180" cy="102" r="1.5"/><circle cx="192" cy="102" r="1.5"/><circle cx="204" cy="102" r="1.5"/><circle cx="216" cy="102" r="1.5"/><circle cx="228" cy="102" r="1.5"/><circle cx="240" cy="102" r="1.5"/><circle cx="252" cy="102" r="1.5"/><circle cx="264" cy="102" r="1.5"/><circle cx="276" cy="102" r="1.5"/>
+              <!-- row 9 -->
+              <circle cx="18" cy="114" r="1.5"/><circle cx="30" cy="114" r="1.5"/><circle cx="42" cy="114" r="1.5"/><circle cx="54" cy="114" r="1.5"/><circle cx="66" cy="114" r="1.5"/><circle cx="78" cy="114" r="1.5"/><circle cx="90" cy="114" r="1.5"/><circle cx="102" cy="114" r="1.5"/><circle cx="114" cy="114" r="1.5"/><circle cx="126" cy="114" r="1.5"/><circle cx="138" cy="114" r="1.5"/><circle cx="150" cy="114" r="1.5"/><circle cx="162" cy="114" r="1.5"/><circle cx="174" cy="114" r="1.5"/><circle cx="186" cy="114" r="1.5"/><circle cx="198" cy="114" r="1.5"/><circle cx="210" cy="114" r="1.5"/><circle cx="222" cy="114" r="1.5"/><circle cx="234" cy="114" r="1.5"/><circle cx="246" cy="114" r="1.5"/><circle cx="258" cy="114" r="1.5"/><circle cx="270" cy="114" r="1.5"/><circle cx="282" cy="114" r="1.5"/>
+              <!-- row 10 -->
+              <circle cx="24" cy="126" r="1.5"/><circle cx="36" cy="126" r="1.5"/><circle cx="48" cy="126" r="1.5"/><circle cx="60" cy="126" r="1.5"/><circle cx="72" cy="126" r="1.5"/><circle cx="84" cy="126" r="1.5"/><circle cx="96" cy="126" r="1.5"/><circle cx="108" cy="126" r="1.5"/><circle cx="120" cy="126" r="1.5"/><circle cx="132" cy="126" r="1.5"/><circle cx="144" cy="126" r="1.5"/><circle cx="156" cy="126" r="1.5"/><circle cx="168" cy="126" r="1.5"/><circle cx="180" cy="126" r="1.5"/><circle cx="192" cy="126" r="1.5"/><circle cx="204" cy="126" r="1.5"/><circle cx="216" cy="126" r="1.5"/><circle cx="228" cy="126" r="1.5"/><circle cx="240" cy="126" r="1.5"/><circle cx="252" cy="126" r="1.5"/><circle cx="264" cy="126" r="1.5"/>
+              <!-- row 11 -->
+              <circle cx="30" cy="138" r="1.5"/><circle cx="42" cy="138" r="1.5"/><circle cx="54" cy="138" r="1.5"/><circle cx="66" cy="138" r="1.5"/><circle cx="78" cy="138" r="1.5"/><circle cx="90" cy="138" r="1.5"/><circle cx="102" cy="138" r="1.5"/><circle cx="114" cy="138" r="1.5"/><circle cx="126" cy="138" r="1.5"/><circle cx="138" cy="138" r="1.5"/><circle cx="150" cy="138" r="1.5"/><circle cx="162" cy="138" r="1.5"/><circle cx="174" cy="138" r="1.5"/><circle cx="186" cy="138" r="1.5"/><circle cx="198" cy="138" r="1.5"/><circle cx="210" cy="138" r="1.5"/><circle cx="222" cy="138" r="1.5"/><circle cx="234" cy="138" r="1.5"/><circle cx="246" cy="138" r="1.5"/><circle cx="258" cy="138" r="1.5"/>
+              <!-- row 12 -->
+              <circle cx="48" cy="150" r="1.5"/><circle cx="60" cy="150" r="1.5"/><circle cx="72" cy="150" r="1.5"/><circle cx="84" cy="150" r="1.5"/><circle cx="96" cy="150" r="1.5"/><circle cx="108" cy="150" r="1.5"/><circle cx="120" cy="150" r="1.5"/><circle cx="132" cy="150" r="1.5"/><circle cx="144" cy="150" r="1.5"/><circle cx="156" cy="150" r="1.5"/><circle cx="168" cy="150" r="1.5"/><circle cx="180" cy="150" r="1.5"/><circle cx="192" cy="150" r="1.5"/><circle cx="204" cy="150" r="1.5"/><circle cx="216" cy="150" r="1.5"/><circle cx="228" cy="150" r="1.5"/>
+              <!-- row 13 -->
+              <circle cx="72" cy="162" r="1.5"/><circle cx="84" cy="162" r="1.5"/><circle cx="96" cy="162" r="1.5"/><circle cx="108" cy="162" r="1.5"/><circle cx="120" cy="162" r="1.5"/><circle cx="132" cy="162" r="1.5"/><circle cx="144" cy="162" r="1.5"/><circle cx="156" cy="162" r="1.5"/><circle cx="168" cy="162" r="1.5"/><circle cx="180" cy="162" r="1.5"/><circle cx="192" cy="162" r="1.5"/>
+            </g>
+            <!-- accent nodes — active server locations -->
+            <g fill="#F6FF00">
+              <circle cx="150" cy="90" r="3.5"/>
+              <circle cx="90" cy="66" r="2.5"/>
+              <circle cx="210" cy="78" r="2.5"/>
+              <circle cx="132" cy="114" r="2.5"/>
+              <circle cx="174" cy="54" r="2"/>
+              <circle cx="240" cy="102" r="2"/>
+              <circle cx="66" cy="102" r="2"/>
+            </g>
+            <!-- connection lines -->
+            <g stroke="#F6FF00" stroke-width="0.5" stroke-opacity="0.3">
+              <line x1="150" y1="90" x2="90" y2="66"/>
+              <line x1="150" y1="90" x2="210" y2="78"/>
+              <line x1="150" y1="90" x2="132" y2="114"/>
+              <line x1="150" y1="90" x2="174" y2="54"/>
+              <line x1="150" y1="90" x2="240" y2="102"/>
+              <line x1="150" y1="90" x2="66" y2="102"/>
+            </g>
+            <!-- center pulse ring -->
+            <circle cx="150" cy="90" r="10" fill="none" stroke="#F6FF00" stroke-width="0.5" stroke-opacity="0.5"/>
+            <circle cx="150" cy="90" r="18" fill="none" stroke="#F6FF00" stroke-width="0.5" stroke-opacity="0.25"/>
+          </svg>
+          <div style="font-family:var(--font-mono);font-size:10px;color:var(--gray-3);text-align:center;letter-spacing:0.15em;padding-top:8px;">:: DOT_MATRIX :: 7,043 NODES ONLINE ::</div>
+        </div>
+      </div>
+
+      <!-- Tooltip -->
+      <div>
+        <div class="comp-label">TOOLTIP / NOTIFICATION</div>
+        <div class="tooltip-box" style="margin-bottom:12px;">
+          <div class="tooltip-title">NODE ALERT :: AU-SYD-07</div>
+          Connection secured. Latency 4ms. AES-256 active. No DNS leaks detected.
+        </div>
+        <div class="tooltip-box" style="border-left-color:#F87171;">
+          <div class="tooltip-title" style="color:#F87171;">WARNING :: PROTOCOL FALLBACK</div>
+          Primary tunnel failed. Rerouting via secondary path. Reconnecting.
+        </div>
+      </div>
+
+      <!-- List -->
+      <div>
+        <div class="comp-label">HUD LIST ITEM</div>
+        <ul class="hud-list">
+          <li><div class="hud-list-bullet"></div><span>Kill Switch active — traffic blocked on disconnect</span></li>
+          <li><div class="hud-list-bullet"></div><span>DNS leak protection enabled on all interfaces</span></li>
+          <li><div class="hud-list-bullet"></div><span>Split tunneling configured for 3 applications</span></li>
+          <li><div class="hud-list-bullet"></div><span>WireGuard protocol — optimal performance mode</span></li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- 09. DATA TABLE -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">09</div>
+    <div class="section-title">Data Table</div>
+
+    <div style="border:1px solid var(--hud);overflow:hidden;">
+      <div style="padding:14px 16px;border-bottom:1px solid var(--hud);display:flex;align-items:center;justify-content:space-between;background:var(--surface-2);">
+        <span style="font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:0.15em;">SERVER_INDEX :: SHOWING 5 OF 7,043</span>
+        <div style="display:flex;gap:6px;align-items:center;">
+          <div style="width:5px;height:5px;background:var(--accent);transform:rotate(45deg);"></div>
+          <span style="font-family:var(--font-mono);font-size:10px;color:var(--gray-3);letter-spacing:0.1em;">SORT :: PING ASC</span>
+        </div>
+      </div>
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>NODE ID</th>
+            <th>LOCATION</th>
+            <th>PING</th>
+            <th>LOAD</th>
+            <th>PROTOCOL</th>
+            <th>STATUS</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td class="td-mono td-accent">AU-SYD-07</td>
+            <td class="td-primary">Sydney, AU</td>
+            <td class="td-accent">4ms</td>
+            <td class="td-mono">28%</td>
+            <td class="td-mono">WireGuard</td>
+            <td><span class="badge badge-active" style="font-size:9px;padding:3px 8px;">ACTIVE</span></td>
+          </tr>
+          <tr>
+            <td class="td-mono">JP-TYO-03</td>
+            <td>Tokyo, JP</td>
+            <td class="td-mono" style="color:var(--white);">11ms</td>
+            <td class="td-mono">41%</td>
+            <td class="td-mono">OpenVPN</td>
+            <td><span class="badge badge-connected" style="font-size:9px;padding:3px 8px;">ONLINE</span></td>
+          </tr>
+          <tr>
+            <td class="td-mono">DE-FRA-12</td>
+            <td>Frankfurt, DE</td>
+            <td class="td-mono">88ms</td>
+            <td class="td-mono">67%</td>
+            <td class="td-mono">WireGuard</td>
+            <td><span class="badge badge-connected" style="font-size:9px;padding:3px 8px;">ONLINE</span></td>
+          </tr>
+          <tr>
+            <td class="td-mono">US-NYC-01</td>
+            <td>New York, US</td>
+            <td class="td-mono">142ms</td>
+            <td class="td-mono">89%</td>
+            <td class="td-mono">IKEv2</td>
+            <td><span class="badge badge-warn" style="font-size:9px;padding:3px 8px;">HIGH LOAD</span></td>
+          </tr>
+          <tr>
+            <td class="td-mono">BR-SAO-02</td>
+            <td>São Paulo, BR</td>
+            <td class="td-mono">—</td>
+            <td class="td-mono">—</td>
+            <td class="td-mono">—</td>
+            <td><span class="badge badge-error" style="font-size:9px;padding:3px 8px;">OFFLINE</span></td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- 10. SPACING + BORDER RULES -->
+  <div class="ds-section section-bottom">
+    <div class="section-label">10</div>
+    <div class="section-title">Spacing &amp; Border Rules</div>
+
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:32px;">
+      <div>
+        <div class="comp-label">SPACING SCALE</div>
+        <div class="spacing-demo">
+          <div class="sp-pair"><div class="sp-bar" style="height:4px;"></div><div class="sp-label">4px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:8px;"></div><div class="sp-label">8px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:12px;"></div><div class="sp-label">12px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:16px;"></div><div class="sp-label">16px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:24px;"></div><div class="sp-label">24px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:32px;"></div><div class="sp-label">32px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:40px;"></div><div class="sp-label">40px</div></div>
+          <div class="sp-pair"><div class="sp-bar" style="height:48px;"></div><div class="sp-label">48px</div></div>
+        </div>
+      </div>
+      <div>
+        <div class="comp-label">BORDER WEIGHT HIERARCHY</div>
+        <div style="display:flex;flex-direction:column;gap:16px;margin-top:4px;">
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:80px;border-top:1px solid var(--accent);"></div>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--gray-2);">1px — accent / focal</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:80px;border-top:1px solid var(--hud);"></div>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--gray-2);">1px — structural HUD</span>
+          </div>
+          <div style="display:flex;align-items:center;gap:16px;">
+            <div style="width:80px;border-top:1px solid var(--gray-5);"></div>
+            <span style="font-family:var(--font-mono);font-size:11px;color:var(--gray-2);">1px — internal dividers</span>
+          </div>
+        </div>
+
+        <div style="margin-top:24px;">
+          <div class="comp-label">BORDER RADIUS RULE</div>
+          <div style="display:flex;gap:12px;align-items:center;margin-top:8px;">
+            <div style="width:48px;height:48px;border:1px solid var(--accent);background:var(--accent-dim);"></div>
+            <div style="font-family:var(--font-mono);font-size:11px;color:var(--accent);letter-spacing:0.1em;">border-radius: 0<br><span style="color:var(--gray-3);">ALWAYS. NO EXCEPTIONS.</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+</div>
+</body>
+</html>
