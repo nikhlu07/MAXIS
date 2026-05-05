@@ -9,7 +9,7 @@ export const Route = createFileRoute("/developers")({
       { title: "Developers — M.A.X.I.S. Spec" },
       {
         name: "description",
-        content: "Catalog API, quote endpoint and x402 checkout for AI agents.",
+        content: "Agent-readable local commerce APIs with x402 checkout and Solana USDC settlement.",
       },
     ],
   }),
@@ -24,8 +24,8 @@ function DevPage() {
         <SectionLabel>Spec · v0.1 draft</SectionLabel>
         <h1 className="text-4xl md:text-5xl font-semibold mt-3">Developers</h1>
         <p className="text-muted-foreground mt-3 max-w-2xl">
-          M.A.X.I.S. exposes three primitives: a canonical catalog, a price quote, and an x402
-          checkout. Below is the contract.
+          M.A.X.I.S. exposes the local-commerce agent contract: discoverable catalog, deterministic
+          order creation, and x402 checkout on Solana.
         </p>
 
         <Section title="Public catalog route">
@@ -43,19 +43,24 @@ Accept: application/json
 }`}</Code>
         </Section>
 
-        <Section title="Quote route">
-          <Code>{`POST /orders/quote
+        <Section title="Order route">
+          <Code>{`POST /orders
 {
-  "merchant": "blue-bottle-mission",
-  "items": [{ "id": "lat_12", "qty": 2 }]
+  "merchant": "north-star-cafe",
+  "items": [{ "id": "lat_12", "qty": 2 }],
+  "fulfillment": { "type": "pickup", "pickup_at": "2026-05-05T18:00:00Z" }
 }
 
-200 OK
-{ "quote_id": "q_8Hx3...", "total_usd": 11.50, "ttl": 60 }`}</Code>
+201 CREATED
+{
+  "order_id": "ord_8Hx3...",
+  "total_usd": 11.50,
+  "status": "AWAITING_PAYMENT"
+}`}</Code>
         </Section>
 
         <Section title="Checkout · 402">
-          <Code>{`POST /orders/checkout  { "quote_id": "q_8Hx3..." }
+          <Code>{`POST /orders/checkout  { "order_id": "ord_8Hx3..." }
 
 402 PAYMENT REQUIRED
 {
@@ -64,7 +69,7 @@ Accept: application/json
   "network": "mainnet",
   "to": "9xQk...payout",
   "amount": 11.50,
-  "memo": "q_8Hx3..."
+  "memo": "ord_8Hx3..."
 }`}</Code>
         </Section>
 
@@ -73,9 +78,9 @@ Accept: application/json
             {[
               "Resolve merchant slug from user intent",
               "Fetch /catalog · cache 60s",
-              "Build quote request · respect ttl",
-              "Handle 402 · sign + send USDC tx",
-              "Poll /orders/:id until status = PAID",
+              "Create /orders request for pickup intent",
+              "Handle 402 · sign and send USDC tx",
+              "Verify tx and poll /orders/:id until status = READY",
             ].map((x) => (
               <li key={x} className="flex gap-3">
                 <span className="text-primary font-mono">▸</span>

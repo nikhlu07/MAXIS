@@ -1,10 +1,36 @@
 # M.A.X.I.S. frontend
 
-Vite + TanStack Start app for the merchant dashboard and marketing shell.
+Frontend for MAXIS: a local commerce workflow layer where AI assistants/agents can discover, order, and pay via x402 on Solana.
+
+This app includes:
+- Marketing + developer pages
+- Merchant dashboard shell
+- UX language aligned to the MVP flow: `catalog -> order -> 402 -> paid -> ready`
+
+## Product Positioning
+
+MAXIS is not just payment rails. It combines:
+- Agent-readable commerce endpoints
+- Order lifecycle management for merchants
+- x402 checkout with USDC settlement on Solana
+
+Pitch line:
+> Stripe validated x402 for machine payments. MAXIS applies that pattern to local commerce workflows.
+
+## MVP Scope
+
+- Pickup-first flow (no delivery network in v1)
+- Merchant listing/catalog management
+- Order status progression:
+  - `AWAITING_PAYMENT`
+  - `PAID`
+  - `ACCEPTED`
+  - `READY`
+- Payment challenge via HTTP `402 Payment Required`
 
 ## Docs
 
-Product requirements, API contracts, and UX depth live in **[FRONTEND-SPEC.md](./FRONTEND-SPEC.md)** (the long-form spec).
+Detailed frontend requirements and UX contracts: **[FRONTEND-SPEC.md](./FRONTEND-SPEC.md)**
 
 ## Setup
 
@@ -14,7 +40,7 @@ npm install
 npm run dev
 ```
 
-Open the URL printed in the terminal (default dev port comes from the TanStack / Vite stack).
+Open the URL printed by the dev server.
 
 ## Build
 
@@ -23,13 +49,14 @@ npm run build
 npm run preview
 ```
 
-The production build uses [Nitro](https://nitro.build/) with the **`vercel` preset**, which writes **`.vercel/output`**. [Vercel’s TanStack Start guide](https://vercel.com/docs/frameworks/full-stack/tanstack-start) expects that layout so the platform can run SSR and static assets. If the project was previously built for **Cloudflare Workers** (Lovable’s default), deploying the same bundle to Vercel produced **404 / NOT_FOUND** because Workers output is not a valid Vercel deployment.
+## Deployment (Vercel)
 
-**Vercel project settings (typical):**
+This project uses [Nitro](https://nitro.build/) with the `vercel` preset and outputs to `.vercel/output`.
 
-- **Root directory:** `maxis-frontend` if the repo root is the monorepo; otherwise the app root.
-- **Install command:** `npm install` (or `npm ci`).
-- **Build command:** `npm run build`.
-- **Output directory:** leave **empty** — do not set `dist` or `public`; Nitro + Vercel use `.vercel/output` automatically when the build runs on Vercel.
+Recommended Vercel settings:
+- Root directory: `maxis-frontend` (if monorepo)
+- Install command: `npm install` (or `npm ci`)
+- Build command: `npm run build`
+- Output directory: leave empty
 
-`wrangler.jsonc` is only for optional **Cloudflare** deploys, not for Vercel.
+Note: `wrangler.jsonc` is only for optional Cloudflare deployment, not required for Vercel.

@@ -12,11 +12,11 @@ import {
 export const Route = createFileRoute("/")({
   head: () => ({
     meta: [
-      { title: "M.A.X.I.S. — Agent Commerce Standard for Cafés" },
+      { title: "M.A.X.I.S. — Local Commerce for AI Agents" },
       {
         name: "description",
         content:
-          "Canonical catalog API + verified x402 USDC checkout on Solana. SMB merchants, non-custodial payouts.",
+          "Agent-readable catalog API with x402 checkout on Solana. Local businesses can be discovered, ordered, and paid by AI assistants.",
       },
     ],
   }),
@@ -35,12 +35,13 @@ function Landing() {
             <div className="max-w-3xl space-y-6">
               <SectionLabel>Agent Commerce · Solana · x402</SectionLabel>
               <h1 className="text-4xl md:text-6xl font-semibold leading-[1.05] tracking-tight">
-                Human menus don't speak to <span className="text-primary">agents</span>. <br />
-                M.A.X.I.S. gives every café a machine‑readable{" "}
-                <span className="text-primary">contract</span>.
+                Local businesses can now sell directly to{" "}
+                <span className="text-primary">AI agents</span>. <br />
+                M.A.X.I.S. handles catalog, order, and{" "}
+                <span className="text-primary">x402 checkout</span>.
               </h1>
               <div className="font-mono text-xs text-muted-foreground tracking-[0.18em]">
-                CAFÉS · QSR · MERCHANT‑UPLOAD CATALOG · V1
+                LOCAL COMMERCE · PICKUP FLOW · MACHINE PAYMENTS
               </div>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link
@@ -57,7 +58,7 @@ function Landing() {
                 </Link>
               </div>
               <div className="font-mono text-xs text-muted-foreground pt-4">
-                #catalog · #quote · #402 · #verify · #fulfil
+                #discover · #order · #402 · #pay · #pickup
               </div>
             </div>
           </HudPanel>
@@ -77,13 +78,13 @@ function Landing() {
         <div className="grid md:grid-cols-2 gap-6 mt-6">
           <FeatCard
             kicker="Today"
-            title="Human sites ≠ machine contracts"
-            body="Agents scrape PDFs, guess prices, fail at checkout. Cafés lose orders to brittle parsing and zero payment trust."
+            title="Local business commerce is built for humans"
+            body="Agents still scrape pages, miss item context, and fail at checkout. Businesses lose machine-originated demand."
           />
           <FeatCard
             kicker="With M.A.X.I.S."
-            title="Canonical catalog + verified pay"
-            body="One JSON schema. One quote endpoint. One x402 challenge. USDC settles to the merchant's own Solana wallet."
+            title="One contract for discover, order, and pay"
+            body="Structured catalogs, deterministic order payloads, and x402 checkout. USDC settles to the merchant wallet on Solana."
           />
         </div>
       </section>
@@ -91,21 +92,29 @@ function Landing() {
       {/* HOW */}
       <section id="how" className="mx-auto max-w-7xl px-6 py-20 border-t border-hairline">
         <SectionLabel>02 / Pipeline</SectionLabel>
-        <h2 className="text-3xl md:text-4xl font-semibold mt-3">Four steps. Catalog to fulfil.</h2>
+        <h2 className="text-3xl md:text-4xl font-semibold mt-3">Four steps. Agent request to pickup.</h2>
         <div className="grid md:grid-cols-4 gap-4 mt-10">
           {[
             [
               "01",
-              "Catalog publish",
-              "Merchant uploads items via dashboard or CSV. Served as canonical JSON.",
+              "Publish catalog",
+              "Business uploads products in dashboard. MAXIS serves a clean agent-readable catalog.",
             ],
-            ["02", "Quote lock", "Agent calls /orders/quote. Price + tax + ETA pinned for 60s."],
+            [
+              "02",
+              "Create order",
+              "Agent submits item + qty + pickup window. MAXIS validates inventory and computes totals.",
+            ],
             [
               "03",
-              "Checkout 402",
-              "HTTP 402 challenge returns USDC payment instructions on Solana.",
+              "Return 402",
+              "Checkout endpoint responds with HTTP 402 Payment Required and USDC instructions on Solana.",
             ],
-            ["04", "Verify · Fulfill", "Tx confirmed on‑chain. Merchant sees PAID. Tap to fulfil."],
+            [
+              "04",
+              "Verify and complete",
+              "On-chain payment is verified, merchant marks READY, customer picks up using order code.",
+            ],
           ].map(([n, t, b]) => (
             <HudPanel key={n} className="bg-surface-1" brackets={false}>
               <div className="font-mono text-primary text-sm tracking-[0.2em]">{n}</div>
@@ -118,7 +127,7 @@ function Landing() {
 
       {/* PRICING */}
       <section id="pricing" className="mx-auto max-w-7xl px-6 py-20 border-t border-hairline">
-        <SectionLabel>03 / Pricing · Hackathon hypothesis</SectionLabel>
+        <SectionLabel>03 / Pricing · Pilot hypothesis</SectionLabel>
         <div className="mt-6 max-w-md">
           <HudPanel className="bg-surface-2">
             <div className="mono-label text-muted-foreground">Pilot tier</div>
@@ -129,9 +138,9 @@ function Landing() {
             <div className="font-mono text-sm text-primary mt-1">+ $0.15 / order</div>
             <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
               <li>— Hosted catalog endpoint</li>
-              <li>— Quote + 402 checkout</li>
+              <li>— Agent order APIs + 402 checkout</li>
               <li>— Solana mainnet/devnet toggle</li>
-              <li>— Non‑custodial payout</li>
+              <li>— Wallet-direct settlement</li>
             </ul>
             <Link
               to="/register"
@@ -150,10 +159,10 @@ function Landing() {
         <div className="grid md:grid-cols-2 gap-8 mt-6 items-start">
           <div>
             <h2 className="text-3xl font-semibold">
-              Built for <span className="text-primary">agents</span>, not browsers.
+              Built for <span className="text-primary">agent execution</span>, not page scraping.
             </h2>
             <p className="text-muted-foreground mt-3">
-              A predictable surface. Deterministic responses. No DOM scraping.
+              Deterministic routes for discover, order creation, payment challenge, and on-chain verify.
             </p>
             <Link
               to="/developers"
@@ -167,19 +176,19 @@ function Landing() {
             <pre className="border border-hairline bg-surface-1 p-5 text-xs font-mono overflow-x-auto">
               {`GET  /merchants/:slug/catalog
 {
-  "merchant": "blue-bottle-mission",
+  "merchant": "north-star-cafe",
   "items": [
-    { "id": "esp_2", "name": "Espresso", "usd": 4.25 },
-    { "id": "lat_12", "name": "Latte 12oz", "usd": 5.75 }
+    { "id": "latte_sm", "name": "Latte Small", "usd": 4.50 },
+    { "id": "cap_md", "name": "Cappuccino Medium", "usd": 5.00 }
   ]
 }
 
-POST /orders/quote
-→ 200 { "quote_id": "q_8H…", "total_usd": 10.00, "ttl": 60 }
+POST /orders
+→ 201 { "order_id": "ord_8H…", "total_usd": 9.00, "status": "AWAITING_PAYMENT" }
 
 POST /orders/checkout
 → 402 { "asset": "USDC", "chain": "solana",
-        "to": "9xQ…", "amount": 10.00 }`}
+        "to": "9xQ…", "amount": 9.00 }`}
             </pre>
           </div>
         </div>
@@ -192,15 +201,15 @@ POST /orders/checkout
           {[
             [
               "Custody?",
-              "M.A.X.I.S. never holds funds. USDC settles directly to the merchant's Solana wallet address.",
+              "M.A.X.I.S. does not custody funds. USDC settles directly to the merchant's Solana wallet.",
             ],
             [
-              "v1 ingestion?",
-              "Manual entry + CSV upload. Auto‑sync to Square/Toast on the roadmap.",
+              "Delivery in v1?",
+              "Pickup-first in v1. Delivery partner integrations are planned after core ordering + payment flow stabilizes.",
             ],
             [
-              "Mainnet or devnet?",
-              "Both. Toggle per merchant in Settings. Devnet recommended for hackathon demos.",
+              "Who can use it?",
+              "Any AI assistant or agent that can call MAXIS APIs and handle HTTP 402 payment challenges.",
             ],
           ].map(([q, a]) => (
             <AccordionItem key={q} value={q} className="border-hairline">
