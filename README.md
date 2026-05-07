@@ -107,7 +107,7 @@ graph LR
   U[User] --> A[AI Assistant / Agent]
   A --> C[Catalog API]
   A --> O[Order API]
-  O --> P[Checkout API (HTTP 402)]
+  O --> P[Checkout API ]
   A --> S[Solana USDC Transfer]
   S --> V[Payment Verifier]
   V --> DB[(Orders DB)]
