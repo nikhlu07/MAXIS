@@ -31,6 +31,7 @@
 - [Order state model](#order-state-model)
 - [Pricing hypothesis](#pricing-hypothesis)
 - [Hackathon demo script](#hackathon-demo-script)
+- [Backend](#backend)
 - [Frontend](#frontend)
 - [References](#references)
 
@@ -41,6 +42,7 @@
 | Path | Purpose |
 |------|---------|
 | `README.md` | Root architecture, scope, API flow, demo narrative |
+| `maxis-api/` | Backend service implementing catalog/order/402/pay/status loop |
 | `maxis-frontend/` | Frontend app + UI/UX docs |
 
 ---
@@ -196,6 +198,14 @@ AWAITING_PAYMENT -> PAID -> ACCEPTED -> READY
 6. Merchant marks order `READY` for pickup.
 
 Core proof: **discover -> order -> 402 -> pay -> ready**.
+
+---
+
+## Backend
+
+Backend service and endpoint docs:
+
+- [`maxis-api/README.md`](./maxis-api/README.md)
 
 ---
 
