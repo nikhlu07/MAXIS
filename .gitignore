@@ -1,9 +1,5 @@
-# Local/private docs only — never commit playbook copies here (master brief stubs below are allowed)
+# Optional local notes in docs/
 /docs/*
-!/docs/MAXIS_MASTER_BRIEF.md
-!/docs/NOTION_PROOF_PLAN.md
-!/docs/DEMO_VERIFICATION.md
-
 
 .env
 .env.*

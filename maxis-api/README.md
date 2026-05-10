@@ -6,29 +6,43 @@ Backend service for the MAXIS end-to-end demo flow:
 
 ## Run
 
-**Stack:** TypeScript (`src/`), strict `tsc` build to `dist/`, dev server via `tsx`.
+**Stack:** TypeScript (`src/`), PostgreSQL via **Prisma**, strict `tsc` build to `dist/`, dev server via `tsx`.
+
+### Database (Supabase)
+
+1. Copy [.env.example](.env.example) → `.env`.
+2. In Supabase: **Project → Connect**, copy **`DATABASE_URL`** (transaction pooler, `:6543`, `pgbouncer=true`) and **`DIRECT_URL`** (session pooler, `:5432`) — same names Prisma expects.
+3. Replace the database password in **both** lines.
+
+```bash
+npm run db:setup    # prisma db push + seed (demo merchant + catalog)
+```
+
+For a one-off: `npm run db:push` then `npm run db:seed`.
+
+**`P1000` authentication failed:** the password in `.env` must be your **database** password from Supabase (Database settings — not API keys). Placeholders like `YOUR_DB_PASSWORD` will always fail—paste the real value. Encode special chars in the URL. If pooler `:5432` still fails for `db push`, set **`DIRECT_URL`** to the **direct** host from Connect: `postgresql://postgres:PASSWORD@db.<PROJECT_REF>.supabase.co:5432/postgres` (requires IPv6 or IPv4 add-on per Supabase).
 
 ```bash
 npm install
 npm run dev          # watch + run src/server.ts (hot restart on save)
 ```
 
-Production / Docker-style:
+Production-style run:
 
 ```bash
-npm run build        # emits dist/
+npm run build        # prisma generate + emits dist/
 npm start            # node dist/server.js
 ```
 
 ```bash
-npm run typecheck    # tsc --noEmit
+npm run typecheck    # prisma generate + tsc --noEmit
 ```
 
 Server default: `http://localhost:3001`
 
-Copy [.env.example](.env.example) to `.env` if you use env-based config.
+Copy [.env.example](.env.example) to `.env` and set **`DATABASE_URL`**, **`DIRECT_URL`**, **`JWT_SECRET`**, and optional RPC vars.
 
-**Optional smoke test:** with the server running, `./scripts/verify-maxis-demo.sh` (requires `curl` and `jq`). No RPC URL is required (payload-only pay path).
+**API smoke test** (Node `fetch`, no bash): API running + DB seeded — `npm run verify:demo` (alias: `npm run test:api`). Optional: `API_BASE_URL=https://your-api npm run verify:demo`. No RPC URL is required (payload-only pay path).
 
 ## On-chain payment verification (Helius / any Solana RPC)
 
@@ -40,9 +54,12 @@ Set **`ONCHAIN_PAY_VERIFY=false`** to force the legacy payload-only check (e.g. 
 
 ## Demo credentials
 
+After **`npm run db:seed`**:
+
 - Merchant slug: `north-star-cafe`
 - Login: `demo@maxis.local` / `demo123`
-- Bearer token (demo): `demo-token`
+
+Use **`POST /auth/login`** (or register) — the JSON **`token`** is a JWT. Send dashboard requests as **`Authorization: Bearer <token>`**.
 
 ## Endpoints
 
@@ -51,7 +68,7 @@ Set **`ONCHAIN_PAY_VERIFY=false`** to force the legacy payload-only check (e.g. 
 - `GET /health`
 - `GET /merchants/:slug/catalog`
 - `POST /orders`
-- `POST /orders/checkout` (returns HTTP **`402`** JSON + `anchor` metadata: program id + SHA-256 hex for `commit_checkout` — see [`../maxis-anchor/README.md`](../maxis-anchor/README.md))
+- `POST /orders/checkout` (returns HTTP **`402`** JSON + `anchor` metadata: program id + `commit_checkout` hashes + **`anchor.settlement`** escrow PDA / vault ATA — see [`../maxis-anchor/README.md`](../maxis-anchor/README.md))
 - `POST /orders/:id/pay`
 - `GET /orders/:id/status`
 
@@ -59,7 +76,7 @@ Set **`ONCHAIN_PAY_VERIFY=false`** to force the legacy payload-only check (e.g. 
 
 - `POST /auth/register`
 - `POST /auth/login`
-- `GET /dashboard/orders` (requires `Authorization: Bearer demo-token`)
+- `GET /dashboard/orders` (requires `Authorization: Bearer <JWT from /auth/login>`)
 - `PATCH /dashboard/orders/:id/status` (`ACCEPTED`, `READY`, `CANCELLED`)
 - `POST /dashboard/catalog`
 

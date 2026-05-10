@@ -1,7 +1,7 @@
 [package]
 name = "maxis"
 version = "0.1.0"
-description = "MAXIS — on-chain checkout commit (merchant + USDC intent) for Frontier / agent commerce demos"
+description = "MAXIS — on-chain checkout commit + PDA-held USDC escrow settlement for Frontier / agent commerce demos"
 edition = "2021"
 license = "MIT"
 
@@ -18,3 +18,4 @@ default = []
 
 [dependencies]
 anchor-lang = "0.30.1"
+anchor-spl = { version = "0.30.1", features = ["associated_token"] }

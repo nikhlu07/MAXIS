@@ -28,10 +28,6 @@ Pitch line:
   - `READY`
 - Payment challenge via HTTP `402 Payment Required`
 
-## Docs
-
-**Single canonical doc** (Notion / gist / other AIs): **[../docs/MAXIS_MASTER_BRIEF.md](../docs/MAXIS_MASTER_BRIEF.md)**
-
 ## Setup
 
 ```bash

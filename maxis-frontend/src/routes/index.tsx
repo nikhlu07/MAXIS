@@ -8,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { landingCatalogSnippet } from "@maxis/demo-data";
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -178,13 +179,7 @@ function Landing() {
             <Brackets />
             <pre className="border border-hairline bg-surface-1 p-5 text-xs font-mono overflow-x-auto">
               {`GET  /merchants/:slug/catalog
-{
-  "merchant": "north-star-cafe",
-  "items": [
-    { "id": "latte_sm", "name": "Latte Small", "usd": 4.50 },
-    { "id": "cap_md", "name": "Cappuccino Medium", "usd": 5.00 }
-  ]
-}
+${landingCatalogSnippet()}
 
 POST /orders
 → 201 { "order_id": "ord_8H…", "total_usd": 9.00, "status": "AWAITING_PAYMENT" }

@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
+import type { DemoCatalogItemUi } from "@maxis/demo-data";
+import { demoCatalogAsUiItems } from "@maxis/demo-data";
 import { apiRequest } from "@/lib/api";
 import { getAuthToken, getMerchantSlug } from "@/lib/auth";
 
@@ -9,33 +11,61 @@ export const Route = createFileRoute("/dashboard/catalog")({
   component: CatalogPage,
 });
 
-type Item = { id: string; name: string; usd: number; category?: string; available: boolean };
-const KEY = "maxis_demo_catalog_v1";
-const SEED: Item[] = [
-  { id: "esp_2", name: "Espresso", usd: 4.25, category: "Coffee", available: true },
-  { id: "lat_12", name: "Latte 12oz", usd: 5.75, category: "Coffee", available: true },
-  { id: "crs_1", name: "Croissant", usd: 4.5, category: "Pastry", available: false },
-];
+type Item = DemoCatalogItemUi;
+
+type CatalogSource = "loading" | "api" | "fixture";
+
+function mapApiCatalogToItems(
+  rows: Array<{ id: string; name: string; usd: number; available: boolean }>,
+): Item[] {
+  const byId = new Map(demoCatalogAsUiItems().map((i) => [i.id, i] as const));
+  return rows.map((r) => ({
+    id: r.id,
+    name: r.name,
+    usd: r.usd,
+    available: r.available,
+    category: byId.get(r.id)?.category,
+  }));
+}
 
 function CatalogPage() {
   const [items, setItems] = useState<Item[]>([]);
+  const [source, setSource] = useState<CatalogSource>("loading");
   const [name, setName] = useState("");
   const [usd, setUsd] = useState("");
   const [cat, setCat] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KEY);
-      setItems(raw ? JSON.parse(raw) : SEED);
-    } catch {
-      setItems(SEED);
+    let cancelled = false;
+    async function load() {
+      setSource("loading");
+      try {
+        const slug = getMerchantSlug();
+        const data = await apiRequest<{
+          items: Array<{ id: string; name: string; usd: number; available: boolean }>;
+        }>(`/merchants/${slug}/catalog`);
+        if (cancelled) return;
+        setItems(mapApiCatalogToItems(data.items ?? []));
+        setSource("api");
+      } catch {
+        if (cancelled) return;
+        setItems(demoCatalogAsUiItems());
+        setSource("fixture");
+      }
     }
+    void load();
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  useEffect(() => {
-    if (items.length) localStorage.setItem(KEY, JSON.stringify(items));
-  }, [items]);
+  const subtitle =
+    source === "loading"
+      ? "Loading catalog…"
+      : source === "api"
+        ? "Loaded from API (Postgres / Supabase via Prisma backend)"
+        : "API unreachable · showing fixtures from shared/maxis-demo-data.ts";
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
@@ -61,7 +91,7 @@ function CatalogPage() {
         <span className="size-2 bg-primary" />
         <h1 className="font-mono uppercase tracking-[0.2em] text-sm">Menu / Catalog</h1>
       </div>
-      <div className="text-muted-foreground text-sm mt-1">Persisted locally · demo</div>
+      <div className="text-muted-foreground text-sm mt-1">{subtitle}</div>
 
       <div className="flex gap-3 mt-6">
         <button
@@ -88,7 +118,8 @@ function CatalogPage() {
                   })),
                 }),
               });
-              setStatusMsg("Saved to API");
+              setStatusMsg("Saved to API → stored in Postgres (e.g. Supabase)");
+              setSource("api");
             } catch (err) {
               setStatusMsg(`save_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
             }

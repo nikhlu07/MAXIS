@@ -3,6 +3,7 @@ import { HudPanel, SectionLabel } from "@/components/maxis/HudPanel";
 import { NavBar } from "@/components/maxis/NavBar";
 import { Footer } from "@/components/maxis/Footer";
 import { useState } from "react";
+import { DEMO_MERCHANT } from "@maxis/demo-data";
 import { apiRequest } from "@/lib/api";
 import { saveAuth } from "@/lib/auth";
 
@@ -47,8 +48,20 @@ function LoginPage() {
               }
             }}
           >
-            <Field label="Email" type="email" value={email} onChange={setEmail} />
-            <Field label="Password" type="password" value={pw} onChange={setPw} />
+            <Field
+              label="Email"
+              type="email"
+              value={email}
+              onChange={setEmail}
+              placeholder={DEMO_MERCHANT.email}
+            />
+            <Field
+              label="Password"
+              type="password"
+              value={pw}
+              onChange={setPw}
+              placeholder={DEMO_MERCHANT.passwordPlainForDemo}
+            />
             {error && <div className="mono-label text-destructive">{error}</div>}
             <button
               disabled={loading}
@@ -57,6 +70,10 @@ function LoginPage() {
               {loading ? "Logging in..." : "Login ▸"}
             </button>
           </form>
+          <p className="mt-4 mono-label text-muted-foreground text-xs">
+            Seeded demo merchant: {DEMO_MERCHANT.slug} · use email + password from{" "}
+            <code className="text-primary">shared/maxis-demo-data.ts</code>
+          </p>
           <p className="mt-6 mono-label text-muted-foreground">
             New here?{" "}
             <Link to="/register" className="text-primary">
@@ -75,11 +92,13 @@ function Field({
   type = "text",
   value,
   onChange,
+  placeholder,
 }: {
   label: string;
   type?: string;
   value: string;
   onChange: (v: string) => void;
+  placeholder?: string;
 }) {
   return (
     <label className="block">
@@ -87,6 +106,7 @@ function Field({
       <input
         type={type}
         value={value}
+        placeholder={placeholder}
         onChange={(e) => onChange(e.target.value)}
         className="w-full bg-black border border-hairline px-3 py-2.5 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
       />

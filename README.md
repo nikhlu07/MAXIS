@@ -20,8 +20,6 @@
 
 ---
 
-**Single canonical handoff** (Notion, gist, other AIs): **[docs/MAXIS_MASTER_BRIEF.md](./docs/MAXIS_MASTER_BRIEF.md)** · Legacy stubs: [NOTION_PROOF_PLAN.md](./docs/NOTION_PROOF_PLAN.md) · [DEMO_VERIFICATION.md](./docs/DEMO_VERIFICATION.md)
-
 ## Table of contents
 
 - [Repository layout](#repository-layout)
@@ -32,7 +30,7 @@
 - [API surface](#api-surface)
 - [Order state model](#order-state-model)
 - [Pricing hypothesis](#pricing-hypothesis)
-- [Hackathon demo script](#hackathon-demo-script)
+- [Demo flow](#demo-flow)
 - [Backend](#backend)
 - [Frontend](#frontend)
 - [References](#references)
@@ -44,11 +42,9 @@
 | Path | Purpose |
 |------|---------|
 | `README.md` | Root architecture, scope, API flow, demo narrative |
-| `docs/MAXIS_MASTER_BRIEF.md` | **One-file** hackathon proof, verification, APIs, AI handoff |
-| `docs/NOTION_PROOF_PLAN.md` | Redirect → master brief |
-| `docs/DEMO_VERIFICATION.md` | Redirect → master brief |
+| `docs/` | Ignored in git — optional local notes only |
 | `maxis-api/` | TypeScript Express backend: catalog / **402** / pay / RPC verify |
-| `maxis-anchor/` | **Anchor** program: `commit_checkout` + `mark_paid` (explorer-verifiable checkout record) |
+| `maxis-anchor/` | **Anchor** program: `commit_checkout` (PDA + USDC vault ATA) + escrow **release/refund** CPIs + `mark_paid` audit |
 | `maxis-frontend/` | Frontend app + UI/UX docs |
 
 ---
@@ -195,7 +191,7 @@ AWAITING_PAYMENT -> PAID -> ACCEPTED -> READY
 
 ---
 
-## Hackathon demo script
+## Demo flow
 
 1. Merchant uploads menu in dashboard.
 2. Agent requests order from catalog.
@@ -214,7 +210,7 @@ TypeScript Express API (`src/`, build to `dist/`). Service and endpoints:
 
 - [`maxis-api/README.md`](./maxis-api/README.md)
 
-Solana program (**custom Anchor**): checkout commit PDA + merchant `mark_paid` — [`maxis-anchor/README.md`](./maxis-anchor/README.md)
+Solana program (**custom Anchor**): checkout PDA + **USDC escrow vault** (`release_escrow_to_merchant` / `refund_escrow_to_depositor`) + `mark_paid` — [`maxis-anchor/README.md`](./maxis-anchor/README.md)
 
 ---
 

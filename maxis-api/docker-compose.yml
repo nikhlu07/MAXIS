@@ -1,0 +1,15 @@
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: maxis
+      POSTGRES_PASSWORD: maxis
+      POSTGRES_DB: maxis
+    ports:
+      - "5433:5432"
+    volumes:
+      - maxis_pgdata:/var/lib/postgresql/data
+
+volumes:
+  maxis_pgdata:

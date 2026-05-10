@@ -1,0 +1,101 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  /// Pooled URL for the app runtime (Supabase: transaction pooler, `pgbouncer=true`).
+  url       = env("DATABASE_URL")
+  /// Same DB, non–transaction-pooled URI for migrations / `db push` (Supabase session pooler `:5432`; or duplicate `DATABASE_URL` if you use a plain Postgres URL everywhere).
+  directUrl = env("DIRECT_URL")
+}
+
+model Merchant {
+  id           String   @id @default(cuid())
+  name         String
+  slug         String   @unique
+  city         String
+  email        String   @unique
+  passwordHash String   @map("password_hash")
+  payoutWallet String   @map("payout_wallet")
+  createdAt    DateTime @default(now()) @map("created_at")
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  catalogItems CatalogItem[]
+  orders       Order[]
+
+  @@map("merchants")
+}
+
+model CatalogItem {
+  id         String   @id
+  merchantId String   @map("merchant_id")
+  merchant   Merchant @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  name       String
+  priceUsd   Decimal  @map("price_usd") @db.Decimal(12, 2)
+  available  Boolean  @default(true)
+
+  @@index([merchantId])
+  @@map("catalog_items")
+}
+
+enum OrderStatus {
+  AWAITING_PAYMENT
+  PAID
+  ACCEPTED
+  READY
+  CANCELLED
+}
+
+model Order {
+  id                      String           @id
+  merchantId              String           @map("merchant_id")
+  merchant                Merchant         @relation(fields: [merchantId], references: [id], onDelete: Cascade)
+  merchantSlug             String           @map("merchant_slug")
+  totalUsd                 Decimal           @map("total_usd") @db.Decimal(14, 2)
+  status                   OrderStatus
+  fulfillment Json         /// { type: \"pickup\", pickupAt?: string }
+  checkoutExpiresAt        DateTime?         @map("checkout_expires_at")
+  activePaymentRequestId   String?           @map("active_payment_request_id")
+  /// Checkout `paymentRequestId` retained after pay succeeds (402 body + idempotency).
+  lastPaymentRequestId     String?           @map("last_payment_request_id")
+  txSignature             String?          @unique @map("tx_signature")
+  paidAt                  DateTime?        @map("paid_at")
+  paymentAsset            String?          @map("payment_asset")
+  paymentChain             String?          @map("payment_chain")
+  paymentMint             String?          @map("payment_mint")
+  paymentAmountDisplay     String?          @map("payment_amount_display")
+  paymentUsd              Decimal?         @map("payment_usd") @db.Decimal(14, 2)
+  verifiedOnChain          Boolean           @default(false) @map("verified_on_chain")
+  createdAt                DateTime         @default(now()) @map("created_at")
+  updatedAt               DateTime         @updatedAt @map("updated_at")
+
+  lines OrderLine[]
+
+  @@index([merchantId])
+  @@index([status])
+  @@map("orders")
+}
+
+model OrderLine {
+  id            String @id @default(cuid())
+  orderId       String @map("order_id")
+  order         Order @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  catalogItemId String @map("catalog_item_id")
+  itemName      String @map("item_name")
+  qty           Int
+  unitPriceUsd  Decimal @map("unit_price_usd") @db.Decimal(12, 2)
+  lineTotalUsd  Decimal @map("line_total_usd") @db.Decimal(12, 2)
+
+  @@index([orderId])
+  @@map("order_lines")
+}
+
+model PayIdempotency {
+  id         String @id @default(cuid())
+  cacheKey   String @unique @map("cache_key")
+  statusCode Int    @map("status_code")
+  body       Json
+
+  @@map("pay_idempotency")
+}

@@ -1,3 +1,5 @@
+import { DEMO_MERCHANT } from "@maxis/demo-data";
+
 const TOKEN_KEY = "maxis_auth_token";
 const MERCHANT_SLUG_KEY = "maxis_merchant_slug";
 
@@ -11,5 +13,5 @@ export function getAuthToken() {
 }
 
 export function getMerchantSlug() {
-  return localStorage.getItem(MERCHANT_SLUG_KEY) ?? "north-star-cafe";
+  return localStorage.getItem(MERCHANT_SLUG_KEY) ?? DEMO_MERCHANT.slug;
 }

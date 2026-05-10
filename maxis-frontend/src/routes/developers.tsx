@@ -2,6 +2,7 @@ import { createFileRoute } from "@tanstack/react-router";
 import { NavBar } from "@/components/maxis/NavBar";
 import { Footer } from "@/components/maxis/Footer";
 import { HudPanel, SectionLabel, Brackets } from "@/components/maxis/HudPanel";
+import { apiCatalogExampleJson, DEMO_CATALOG_ITEMS, DEMO_MERCHANT } from "@maxis/demo-data";
 
 export const Route = createFileRoute("/developers")({
   head: () => ({
@@ -34,21 +35,14 @@ function DevPage() {
 Accept: application/json
 
 200 OK
-{
-  "merchant": { "slug": "blue-bottle-mission", "city": "SF" },
-  "currency": "USD",
-  "items": [
-    { "id": "esp_2",  "name": "Espresso",  "usd": 4.25, "available": true },
-    { "id": "lat_12", "name": "Latte 12oz", "usd": 5.75, "available": true }
-  ]
-}`}</Code>
+${apiCatalogExampleJson()}`}</Code>
         </Section>
 
         <Section title="Order route">
           <Code>{`POST /orders
 {
-  "merchant": "north-star-cafe",
-  "items": [{ "id": "lat_12", "qty": 2 }],
+  "merchant": "${DEMO_MERCHANT.slug}",
+  "items": [{ "id": "${DEMO_CATALOG_ITEMS[1].id}", "qty": 2 }],
   "fulfillment": { "type": "pickup", "pickup_at": "2026-05-05T18:00:00Z" }
 }
 
