@@ -9,7 +9,8 @@ export const Route = createFileRoute("/developers")({
       { title: "Developers — M.A.X.I.S. Spec" },
       {
         name: "description",
-        content: "Agent-readable local commerce APIs with x402 checkout and Solana USDC settlement.",
+        content:
+          "Agent-readable local commerce APIs with x402 checkout and Solana USDC settlement.",
       },
     ],
   }),

@@ -3,6 +3,8 @@ import { HudPanel, SectionLabel } from "@/components/maxis/HudPanel";
 import { NavBar } from "@/components/maxis/NavBar";
 import { Footer } from "@/components/maxis/Footer";
 import { useState } from "react";
+import { apiRequest } from "@/lib/api";
+import { saveAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/login")({
   head: () => ({ meta: [{ title: "Sign in — M.A.X.I.S." }] }),
@@ -13,6 +15,8 @@ function LoginPage() {
   const nav = useNavigate();
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
   return (
     <div className="min-h-screen flex flex-col bg-black">
       <NavBar />
@@ -22,15 +26,35 @@ function LoginPage() {
           <h2 className="text-2xl font-semibold mt-3">Sign in</h2>
           <form
             className="mt-6 space-y-4"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
-              nav({ to: "/dashboard/orders" });
+              setError("");
+              setLoading(true);
+              try {
+                const data = await apiRequest<{ token: string; merchant: { slug: string } }>(
+                  "/auth/login",
+                  {
+                    method: "POST",
+                    body: JSON.stringify({ email, password: pw }),
+                  },
+                );
+                saveAuth(data.token, data.merchant.slug);
+                nav({ to: "/dashboard/orders" });
+              } catch (err) {
+                setError(err instanceof Error ? err.message : "login_failed");
+              } finally {
+                setLoading(false);
+              }
             }}
           >
             <Field label="Email" type="email" value={email} onChange={setEmail} />
             <Field label="Password" type="password" value={pw} onChange={setPw} />
-            <button className="w-full bg-primary text-primary-foreground py-3 mono-label">
-              Login ▸
+            {error && <div className="mono-label text-destructive">{error}</div>}
+            <button
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground py-3 mono-label disabled:opacity-60"
+            >
+              {loading ? "Logging in..." : "Login ▸"}
             </button>
           </form>
           <p className="mt-6 mono-label text-muted-foreground">

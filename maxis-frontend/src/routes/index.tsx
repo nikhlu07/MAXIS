@@ -92,7 +92,9 @@ function Landing() {
       {/* HOW */}
       <section id="how" className="mx-auto max-w-7xl px-6 py-20 border-t border-hairline">
         <SectionLabel>02 / Pipeline</SectionLabel>
-        <h2 className="text-3xl md:text-4xl font-semibold mt-3">Four steps. Agent request to pickup.</h2>
+        <h2 className="text-3xl md:text-4xl font-semibold mt-3">
+          Four steps. Agent request to pickup.
+        </h2>
         <div className="grid md:grid-cols-4 gap-4 mt-10">
           {[
             [
@@ -162,7 +164,8 @@ function Landing() {
               Built for <span className="text-primary">agent execution</span>, not page scraping.
             </h2>
             <p className="text-muted-foreground mt-3">
-              Deterministic routes for discover, order creation, payment challenge, and on-chain verify.
+              Deterministic routes for discover, order creation, payment challenge, and on-chain
+              verify.
             </p>
             <Link
               to="/developers"

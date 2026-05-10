@@ -20,6 +20,8 @@
 
 ---
 
+**Single canonical handoff** (Notion, gist, other AIs): **[docs/MAXIS_MASTER_BRIEF.md](./docs/MAXIS_MASTER_BRIEF.md)** · Legacy stubs: [NOTION_PROOF_PLAN.md](./docs/NOTION_PROOF_PLAN.md) · [DEMO_VERIFICATION.md](./docs/DEMO_VERIFICATION.md)
+
 ## Table of contents
 
 - [Repository layout](#repository-layout)
@@ -42,6 +44,9 @@
 | Path | Purpose |
 |------|---------|
 | `README.md` | Root architecture, scope, API flow, demo narrative |
+| `docs/MAXIS_MASTER_BRIEF.md` | **One-file** hackathon proof, verification, APIs, AI handoff |
+| `docs/NOTION_PROOF_PLAN.md` | Redirect → master brief |
+| `docs/DEMO_VERIFICATION.md` | Redirect → master brief |
 | `maxis-api/` | Backend service implementing catalog/order/402/pay/status loop |
 | `maxis-frontend/` | Frontend app + UI/UX docs |
 
@@ -64,7 +69,7 @@ MAXIS provides a clean machine contract for local merchants:
 1. structured catalog for agents
 2. deterministic order APIs
 3. x402 payment challenge
-4. USDC verification on Solana
+4. pay-proof step (MVP: server-side field checks; roadmap: Solana RPC confirmation)
 5. merchant dashboard with fulfillment status
 
 ---
@@ -76,7 +81,7 @@ MAXIS provides a clean machine contract for local merchants:
 - Merchant dashboard: catalog + incoming orders + status updates
 - Agent flow: `catalog -> order -> checkout(402) -> pay -> status`
 - Pickup-first fulfillment
-- Solana USDC verification (devnet for hackathon)
+- Devnet-oriented pay flow (MVP verifier does not replace production RPC confirmation)
 
 ### Out of scope (v1)
 
@@ -97,9 +102,9 @@ AI Assistant / Agent
    v
 M.A.X.I.S. API  <------>  Merchant Dashboard
    |
-   +------> Solana (USDC payment verification)
+   +------> Pay proof validation (MVP) / Solana RPC confirmation (roadmap)
    |
-   +------> Database (merchants, catalog, orders, tx refs)
+   +------> Persistence: in-memory store for hackathon MVP (swap for Postgres later)
 ```
 
 ### Component view
@@ -110,9 +115,9 @@ graph LR
   A --> C[Catalog API]
   A --> O[Order API]
   O --> P[Checkout API ]
-  A --> S[Solana USDC Transfer]
-  S --> V[Payment Verifier]
-  V --> DB[(Orders DB)]
+  A --> S[Solana USDC Transfer agent]
+  A --> V[PayProofHandler MVP]
+  V --> DB[(InMemory Store MVP)]
   DB --> D[Merchant Dashboard]
 ```
 
@@ -136,12 +141,13 @@ sequenceDiagram
     API-->>A: order_id + total + AWAITING_PAYMENT
     A->>CH: POST /orders/checkout
     CH-->>A: 402 Payment Required + USDC instructions
-    A->>SOL: Send USDC transfer
-    A->>API: POST /orders/:id/pay (tx signature)
-    API->>SOL: Verify tx
+    A->>SOL: Send USDC transfer (client/agent)
+    A->>API: POST /orders/:id/pay (tx signature + bounded fields)
+    Note over API: MVP validates payload; RPC tx verify is roadmap
     API-->>A: PAID
     API-->>M: Paid order visible
-    M->>API: PATCH /dashboard/orders/:id/status = READY
+    M->>API: PATCH status = ACCEPTED
+    M->>API: PATCH status = READY
 ```
 
 ---
@@ -155,7 +161,7 @@ sequenceDiagram
 | `GET` | `/merchants/:slug/catalog` | Read machine-readable catalog |
 | `POST` | `/orders` | Create order for selected items |
 | `POST` | `/orders/checkout` | Return HTTP `402` with payment instructions |
-| `POST` | `/orders/:id/pay` | Submit tx signature for verification |
+| `POST` | `/orders/:id/pay` | Submit tx signature / pay-proof (MVP field validation) |
 | `GET` | `/orders/:id/status` | Poll lifecycle status |
 
 ### Merchant-facing
@@ -193,8 +199,8 @@ AWAITING_PAYMENT -> PAID -> ACCEPTED -> READY
 1. Merchant uploads menu in dashboard.
 2. Agent requests order from catalog.
 3. Checkout returns HTTP `402 Payment Required`.
-4. Agent pays USDC on Solana.
-5. Payment is verified and order status changes to `PAID`.
+4. Agent (or demo UI) submits pay proof (`txSignature`, amount, recipient, `paymentRequestId`).
+5. Backend accepts proof under MVP rules; order moves to `PAID` (harden with Solana RPC next).
 6. Merchant marks order `READY` for pickup.
 
 Core proof: **discover -> order -> 402 -> pay -> ready**.

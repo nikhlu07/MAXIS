@@ -1,6 +1,8 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
+import { apiRequest } from "@/lib/api";
+import { getAuthToken, getMerchantSlug } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/catalog")({
   head: () => ({ meta: [{ title: "Catalog — M.A.X.I.S." }] }),
@@ -20,6 +22,7 @@ function CatalogPage() {
   const [name, setName] = useState("");
   const [usd, setUsd] = useState("");
   const [cat, setCat] = useState("");
+  const [statusMsg, setStatusMsg] = useState("");
 
   useEffect(() => {
     try {
@@ -68,12 +71,34 @@ function CatalogPage() {
           Import CSV
         </button>
         <button
-          onClick={() => alert("Wire to maxis‑api")}
+          onClick={async () => {
+            setStatusMsg("");
+            try {
+              const token = getAuthToken();
+              await apiRequest("/dashboard/catalog", {
+                method: "POST",
+                token,
+                body: JSON.stringify({
+                  merchantSlug: getMerchantSlug(),
+                  items: items.map((it) => ({
+                    id: it.id,
+                    name: it.name,
+                    priceUsd: it.usd,
+                    available: it.available,
+                  })),
+                }),
+              });
+              setStatusMsg("Saved to API");
+            } catch (err) {
+              setStatusMsg(`save_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
+            }
+          }}
           className="border border-primary text-primary px-3 py-2 mono-label"
         >
           Save to API
         </button>
       </div>
+      {statusMsg && <div className="mono-label text-muted-foreground mt-3">{statusMsg}</div>}
 
       <form
         onSubmit={add}

@@ -1,6 +1,7 @@
 import express from "express";
 import cors from "cors";
-import { z } from "zod";
+/** Zod v4 includes a stable v3 API surface (`zod/v3`) — use it for predictable optional keys. */
+import { z } from "zod/v3";
 
 const app = express();
 app.use(cors());
@@ -8,6 +9,11 @@ app.use(express.json());
 
 const PORT = Number(process.env.PORT || 3001);
 const DEMO_TOKEN = "demo-token";
+
+/** SPL USDC mint on Solana devnet (override via env for your cluster). */
+const USDC_MINT_DEVNET = process.env.USDC_MINT_DEVNET || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
+
+const CHECKOUT_TTL_MS = Number(process.env.CHECKOUT_TTL_MS || 10 * 60 * 1000);
 
 const db = {
   merchants: [
@@ -45,6 +51,8 @@ const db = {
     },
   ],
   orders: [],
+  /** @type {Map<string, { status: number; body: object }>} */
+  payIdempotency: new Map(),
 };
 
 const OrderStatus = {
@@ -70,14 +78,41 @@ const checkoutSchema = z.object({
   orderId: z.string().min(1),
 });
 
-const paySchema = z.object({
-  txSignature: z.string().min(10),
-  amountUsd: z.number().positive(),
-  recipientWallet: z.string().min(8),
-  asset: z.literal("USDC"),
-  chain: z.literal("solana-devnet"),
-  reference: z.string().min(1),
-});
+const paySchema = z
+  .object({
+    paymentRequestId: z.string().min(1),
+    idempotencyKey: z.string().min(8).max(128).optional(),
+    txSignature: z.string().min(10),
+    /** String like "9.00" (recommended) or number */
+    amount: z.union([z.string(), z.number()]).optional(),
+    /** @deprecated prefer `amount` */
+    amountUsd: z.number().positive().optional(),
+    recipient: z.string().min(8).optional(),
+    /** @deprecated prefer `recipient` */
+    recipientWallet: z.string().min(8).optional(),
+    asset: z.literal("USDC"),
+    chain: z.literal("solana-devnet"),
+    reference: z.string().min(1),
+  })
+  .superRefine((data, ctx) => {
+    const hasAmount =
+      data.amount !== undefined ||
+      data.amountUsd !== undefined;
+    if (!hasAmount) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide `amount` (string recommended) or `amountUsd` (number)",
+        path: ["amount"],
+      });
+    }
+    if (!data.recipient && !data.recipientWallet) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "Provide `recipient` or `recipientWallet`",
+        path: ["recipient"],
+      });
+    }
+  });
 
 const updateStatusSchema = z.object({
   status: z.enum([OrderStatus.ACCEPTED, OrderStatus.READY, OrderStatus.CANCELLED]),
@@ -85,6 +120,49 @@ const updateStatusSchema = z.object({
 
 function roundUsd(value) {
   return Math.round(value * 100) / 100;
+}
+
+function parseAmountToNumber(amount, amountUsd) {
+  if (amountUsd != null) return roundUsd(amountUsd);
+  if (typeof amount === "number") return roundUsd(amount);
+  const n = Number(String(amount).trim());
+  if (!Number.isFinite(n)) throw new Error("invalid_amount_format");
+  return roundUsd(n);
+}
+
+function normalizeRecipient(parsed) {
+  return parsed.recipient ?? parsed.recipientWallet;
+}
+
+function idempotencyCacheKey(orderId, idempotencyKey) {
+  return `pay:${orderId}:${idempotencyKey}`;
+}
+
+class ApiError extends Error {
+  constructor(status, error, details = undefined) {
+    super(error);
+    this.status = status;
+    this.error = error;
+    this.details = details;
+  }
+}
+
+function fail(status, error, details = undefined) {
+  throw new ApiError(status, error, details);
+}
+
+function requireMerchantById(merchantId) {
+  const merchant = db.merchants.find((m) => m.id === merchantId);
+  if (!merchant) fail(500, "merchant_record_missing");
+  return merchant;
+}
+
+function zodBody(schema, body) {
+  const parsed = schema.safeParse(body);
+  if (!parsed.success) {
+    fail(400, "invalid_payload", { validation: parsed.error.flatten() });
+  }
+  return parsed.data;
 }
 
 function toPublicCatalogItem(item) {
@@ -126,13 +204,10 @@ app.post("/auth/register", (req, res) => {
     payoutWallet: z.string().min(8),
   });
 
-  const parsed = bodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
-  }
+  const parsed = zodBody(bodySchema, req.body);
 
   const exists = db.merchants.some(
-    (m) => m.slug === parsed.data.slug || m.email.toLowerCase() === parsed.data.email.toLowerCase(),
+    (m) => m.slug === parsed.slug || m.email.toLowerCase() === parsed.email.toLowerCase(),
   );
   if (exists) {
     return res.status(409).json({ error: "merchant_exists" });
@@ -140,7 +215,7 @@ app.post("/auth/register", (req, res) => {
 
   const merchant = {
     id: `m_${crypto.randomUUID()}`,
-    ...parsed.data,
+    ...parsed,
   };
   db.merchants.push(merchant);
 
@@ -161,14 +236,10 @@ app.post("/auth/login", (req, res) => {
     email: z.string().email(),
     password: z.string().min(1),
   });
-  const parsed = bodySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
-  }
+  const parsed = zodBody(bodySchema, req.body);
 
   const merchant = db.merchants.find(
-    (m) =>
-      m.email.toLowerCase() === parsed.data.email.toLowerCase() && m.password === parsed.data.password,
+    (m) => m.email.toLowerCase() === parsed.email.toLowerCase() && m.password === parsed.password,
   );
   if (!merchant) {
     return res.status(401).json({ error: "invalid_credentials" });
@@ -208,12 +279,9 @@ app.get("/merchants/:slug/catalog", (req, res) => {
 });
 
 app.post("/orders", (req, res) => {
-  const parsed = createOrderSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
-  }
+  const parsed = zodBody(createOrderSchema, req.body);
 
-  const merchant = getMerchantBySlug(parsed.data.merchantSlug);
+  const merchant = getMerchantBySlug(parsed.merchantSlug);
   if (!merchant) {
     return res.status(404).json({ error: "merchant_not_found" });
   }
@@ -221,7 +289,7 @@ app.post("/orders", (req, res) => {
   const lines = [];
   let totalUsd = 0;
 
-  for (const requestItem of parsed.data.items) {
+  for (const requestItem of parsed.items) {
     const item = db.catalogItems.find(
       (catalogItem) => catalogItem.merchantId === merchant.id && catalogItem.id === requestItem.itemId,
     );
@@ -247,9 +315,10 @@ app.post("/orders", (req, res) => {
     lines,
     totalUsd: roundUsd(totalUsd),
     status: OrderStatus.AWAITING_PAYMENT,
-    fulfillment: parsed.data.fulfillment ?? { type: "pickup" },
+    fulfillment: parsed.fulfillment ?? { type: "pickup" },
     createdAt: new Date().toISOString(),
     checkoutExpiresAt: null,
+    activePaymentRequestId: null,
     payment: null,
   };
   db.orders.push(order);
@@ -264,12 +333,9 @@ app.post("/orders", (req, res) => {
 });
 
 app.post("/orders/checkout", (req, res) => {
-  const parsed = checkoutSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
-  }
+  const parsed = zodBody(checkoutSchema, req.body);
 
-  const order = getOrder(parsed.data.orderId);
+  const order = getOrder(parsed.orderId);
   if (!order) {
     return res.status(404).json({ error: "order_not_found" });
   }
@@ -277,19 +343,31 @@ app.post("/orders/checkout", (req, res) => {
     return res.status(409).json({ error: "order_not_payable", status: order.status });
   }
 
-  const merchant = db.merchants.find((m) => m.id === order.merchantId);
-  order.checkoutExpiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+  const merchant = requireMerchantById(order.merchantId);
+  const paymentRequestId = `pr_${crypto.randomUUID()}`;
+  order.activePaymentRequestId = paymentRequestId;
+  order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_TTL_MS).toISOString();
+
+  const amt = order.totalUsd.toFixed(2);
 
   return res.status(402).json({
     error: "payment_required",
     orderId: order.id,
+    paymentRequestId,
+    amount: amt,
     amountUsd: order.totalUsd,
     currency: "USD",
     asset: "USDC",
     chain: "solana-devnet",
+    mint: USDC_MINT_DEVNET,
+    recipient: merchant.payoutWallet,
     recipientWallet: merchant.payoutWallet,
     reference: order.id,
     expiresAt: order.checkoutExpiresAt,
+    verification: {
+      requiredConfirmations: 1,
+      commitment: "confirmed",
+    },
   });
 });
 
@@ -302,44 +380,86 @@ app.post("/orders/:id/pay", (req, res) => {
     return res.status(409).json({ error: "order_not_payable", status: order.status });
   }
 
-  const parsed = paySchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
+  const parsed = zodBody(paySchema, req.body);
+
+  if (!order.activePaymentRequestId) {
+    return res.status(400).json({
+      error: "checkout_required",
+      details: { message: "Call POST /orders/checkout first to receive HTTP 402." },
+    });
+  }
+  if (parsed.paymentRequestId && parsed.paymentRequestId !== order.activePaymentRequestId) {
+    return res.status(400).json({ error: "invalid_payment_request_id" });
+  }
+  if (!parsed.paymentRequestId) {
+    return res.status(400).json({ error: "payment_request_id_required", expected: order.activePaymentRequestId });
+  }
+
+  if (parsed.idempotencyKey) {
+    const cacheKey = idempotencyCacheKey(order.id, parsed.idempotencyKey);
+    const cached = db.payIdempotency.get(cacheKey);
+    if (cached) {
+      return res.status(cached.status).json(cached.body);
+    }
   }
 
   if (order.checkoutExpiresAt && Date.now() > new Date(order.checkoutExpiresAt).getTime()) {
     return res.status(408).json({ error: "checkout_expired" });
   }
 
-  const merchant = db.merchants.find((m) => m.id === order.merchantId);
-  if (parsed.data.recipientWallet !== merchant.payoutWallet) {
-    return res.status(400).json({ error: "invalid_recipient_wallet" });
+  let paidAmountUsd;
+  try {
+    paidAmountUsd = parseAmountToNumber(parsed.amount, parsed.amountUsd);
+  } catch {
+    return res.status(400).json({ error: "invalid_amount_format" });
   }
-  if (roundUsd(parsed.data.amountUsd) !== roundUsd(order.totalUsd)) {
-    return res.status(400).json({ error: "invalid_amount", expected: order.totalUsd });
+
+  const merchant = requireMerchantById(order.merchantId);
+  const recipient = normalizeRecipient(parsed);
+  if (recipient !== merchant.payoutWallet) {
+    return res.status(400).json({ error: "invalid_recipient", expectedRecipient: merchant.payoutWallet });
   }
-  if (parsed.data.reference !== order.id) {
+  if (paidAmountUsd !== roundUsd(order.totalUsd)) {
+    return res.status(400).json({
+      error: "invalid_amount",
+      expected: order.totalUsd.toFixed(2),
+      received: paidAmountUsd.toFixed(2),
+    });
+  }
+  if (parsed.reference !== order.id) {
     return res.status(400).json({ error: "invalid_reference" });
   }
-  if (db.orders.some((o) => o.payment?.txSignature === parsed.data.txSignature)) {
+  if (db.orders.some((o) => o.payment?.txSignature === parsed.txSignature)) {
     return res.status(409).json({ error: "duplicate_tx_signature" });
   }
 
   order.payment = {
-    txSignature: parsed.data.txSignature,
-    amountUsd: parsed.data.amountUsd,
+    paymentRequestId: order.activePaymentRequestId,
+    txSignature: parsed.txSignature,
+    amount: paidAmountUsd.toFixed(2),
+    amountUsd: paidAmountUsd,
     paidAt: new Date().toISOString(),
-    asset: parsed.data.asset,
-    chain: parsed.data.chain,
+    asset: parsed.asset,
+    chain: parsed.chain,
+    mint: USDC_MINT_DEVNET,
   };
   order.status = OrderStatus.PAID;
+  order.activePaymentRequestId = null;
 
-  return res.json({
+  const okBody = {
     orderId: order.id,
     status: order.status,
     txSignature: order.payment.txSignature,
     paidAt: order.payment.paidAt,
-  });
+    paymentRequestId: order.payment.paymentRequestId,
+  };
+
+  if (parsed.idempotencyKey) {
+    const cacheKey = idempotencyCacheKey(order.id, parsed.idempotencyKey);
+    db.payIdempotency.set(cacheKey, { status: 200, body: okBody });
+  }
+
+  return res.json(okBody);
 });
 
 app.get("/orders/:id/status", (req, res) => {
@@ -376,22 +496,19 @@ app.patch("/dashboard/orders/:id/status", authRequired, (req, res) => {
     return res.status(404).json({ error: "order_not_found" });
   }
 
-  const parsed = updateStatusSchema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
-  }
+  const parsed = zodBody(updateStatusSchema, req.body);
 
-  if (parsed.data.status === OrderStatus.ACCEPTED && order.status !== OrderStatus.PAID) {
+  if (parsed.status === OrderStatus.ACCEPTED && order.status !== OrderStatus.PAID) {
     return res.status(409).json({ error: "only_paid_orders_can_be_accepted" });
   }
-  if (parsed.data.status === OrderStatus.READY && order.status !== OrderStatus.ACCEPTED) {
+  if (parsed.status === OrderStatus.READY && order.status !== OrderStatus.ACCEPTED) {
     return res.status(409).json({ error: "only_accepted_orders_can_be_ready" });
   }
-  if (parsed.data.status === OrderStatus.CANCELLED && order.status === OrderStatus.READY) {
+  if (parsed.status === OrderStatus.CANCELLED && order.status === OrderStatus.READY) {
     return res.status(409).json({ error: "ready_orders_cannot_be_cancelled" });
   }
 
-  order.status = parsed.data.status;
+  order.status = parsed.status;
   return res.json({
     orderId: order.id,
     status: order.status,
@@ -412,22 +529,19 @@ app.post("/dashboard/catalog", authRequired, (req, res) => {
       )
       .min(1),
   });
-  const parsed = schema.safeParse(req.body);
-  if (!parsed.success) {
-    return res.status(400).json({ error: "invalid_payload", details: parsed.error.flatten() });
-  }
+  const parsed = zodBody(schema, req.body);
 
-  const merchant = getMerchantBySlug(parsed.data.merchantSlug);
+  const merchant = getMerchantBySlug(parsed.merchantSlug);
   if (!merchant) {
     return res.status(404).json({ error: "merchant_not_found" });
   }
 
-  const existingIds = new Set(parsed.data.items.map((item) => item.id));
+  const existingIds = new Set(parsed.items.map((item) => item.id));
   db.catalogItems = db.catalogItems.filter(
     (item) => item.merchantId !== merchant.id || existingIds.has(item.id),
   );
 
-  for (const item of parsed.data.items) {
+  for (const item of parsed.items) {
     const idx = db.catalogItems.findIndex(
       (catalogItem) => catalogItem.merchantId === merchant.id && catalogItem.id === item.id,
     );
@@ -447,6 +561,22 @@ app.post("/dashboard/catalog", authRequired, (req, res) => {
 
 app.use((req, res) => {
   res.status(404).json({ error: "not_found", path: req.path });
+});
+
+app.use((err, _req, res, _next) => {
+  if (err instanceof SyntaxError && "body" in err) {
+    return res.status(400).json({ error: "invalid_json" });
+  }
+
+  if (err instanceof ApiError) {
+    return res.status(err.status).json({
+      error: err.error,
+      ...(err.details ? { details: err.details } : {}),
+    });
+  }
+
+  console.error("Unhandled API error:", err);
+  return res.status(500).json({ error: "internal_server_error" });
 });
 
 app.listen(PORT, () => {

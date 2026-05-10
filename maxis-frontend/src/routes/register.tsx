@@ -3,6 +3,8 @@ import { HudPanel, SectionLabel } from "@/components/maxis/HudPanel";
 import { NavBar } from "@/components/maxis/NavBar";
 import { Footer } from "@/components/maxis/Footer";
 import { useState } from "react";
+import { apiRequest } from "@/lib/api";
+import { saveAuth } from "@/lib/auth";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "Create account — M.A.X.I.S." }] }),
@@ -16,6 +18,7 @@ function RegisterPage() {
   const [pw, setPw] = useState("");
   const [city, setCity] = useState("");
   const [err, setErr] = useState("");
+  const [loading, setLoading] = useState(false);
   return (
     <div className="min-h-screen flex flex-col bg-black">
       <NavBar />
@@ -25,13 +28,41 @@ function RegisterPage() {
           <h2 className="text-2xl font-semibold mt-3">Create merchant account</h2>
           <form
             className="mt-6 space-y-4"
-            onSubmit={(e) => {
+            onSubmit={async (e) => {
               e.preventDefault();
               if (pw.length < 8) {
                 setErr("Password must be ≥ 8 chars");
                 return;
               }
-              nav({ to: "/dashboard/catalog" });
+              setErr("");
+              setLoading(true);
+              const slug = shop
+                .trim()
+                .toLowerCase()
+                .replace(/[^a-z0-9]+/g, "-")
+                .replace(/(^-|-$)/g, "");
+              try {
+                const data = await apiRequest<{ token: string; merchant: { slug: string } }>(
+                  "/auth/register",
+                  {
+                    method: "POST",
+                    body: JSON.stringify({
+                      name: shop,
+                      slug: slug || `merchant-${Math.random().toString(36).slice(2, 7)}`,
+                      city: city || "Unknown",
+                      email,
+                      password: pw,
+                      payoutWallet: "8H1payoutWalletDemoSolanaAddress",
+                    }),
+                  },
+                );
+                saveAuth(data.token, data.merchant.slug);
+                nav({ to: "/dashboard/catalog" });
+              } catch (error) {
+                setErr(error instanceof Error ? error.message : "register_failed");
+              } finally {
+                setLoading(false);
+              }
             }}
           >
             <Field label="Shop name" value={shop} onChange={setShop} />
@@ -39,8 +70,11 @@ function RegisterPage() {
             <Field label="Password (min 8)" type="password" value={pw} onChange={setPw} />
             <Field label="City (optional)" value={city} onChange={setCity} />
             {err && <div className="mono-label text-destructive">{err}</div>}
-            <button className="w-full bg-primary text-primary-foreground py-3 mono-label">
-              Create account ▸
+            <button
+              disabled={loading}
+              className="w-full bg-primary text-primary-foreground py-3 mono-label disabled:opacity-60"
+            >
+              {loading ? "Creating..." : "Create account ▸"}
             </button>
           </form>
           <p className="mt-6 mono-label text-muted-foreground">

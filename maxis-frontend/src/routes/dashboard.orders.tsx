@@ -1,57 +1,186 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { apiRequest } from "@/lib/api";
+import { getAuthToken, getMerchantSlug } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/orders")({
   head: () => ({ meta: [{ title: "Orders — M.A.X.I.S." }] }),
   component: OrdersPage,
 });
 
-type Status = "PENDING" | "PAID" | "FULFILLED";
+type Status = "AWAITING_PAYMENT" | "PAID" | "ACCEPTED" | "READY" | "CANCELLED";
 type Order = {
   id: string;
   created: string;
   total: number;
   status: Status;
-  items: { name: string; qty: number }[];
+  items: { name: string; qty: number; unitPriceUsd?: number }[];
+  txSignature?: string;
 };
 
-const SEED: Order[] = [
-  {
-    id: "ord_8Hx3kL",
-    created: "2025-05-02 09:14",
-    total: 11.5,
-    status: "PAID",
-    items: [{ name: "Latte 12oz", qty: 2 }],
-  },
-  {
-    id: "ord_3Yp9qM",
-    created: "2025-05-02 09:02",
-    total: 4.25,
-    status: "PENDING",
-    items: [{ name: "Espresso", qty: 1 }],
-  },
-  {
-    id: "ord_Z1mNpQ",
-    created: "2025-05-02 08:41",
-    total: 18.0,
-    status: "FULFILLED",
-    items: [
-      { name: "Cold Brew", qty: 2 },
-      { name: "Croissant", qty: 1 },
-    ],
-  },
+const FILTERS: Array<Status | "ALL"> = [
+  "ALL",
+  "AWAITING_PAYMENT",
+  "PAID",
+  "ACCEPTED",
+  "READY",
+  "CANCELLED",
 ];
 
-const FILTERS: Array<Status | "ALL"> = ["ALL", "PENDING", "PAID", "FULFILLED"];
+type CatalogItem = { id: string; name: string; usd: number; available: boolean };
+type Checkout402 = {
+  error: "payment_required";
+  orderId: string;
+  paymentRequestId: string;
+  amount: string;
+  recipient: string;
+  reference: string;
+  expiresAt: string;
+};
 
 function OrdersPage() {
-  const [orders, setOrders] = useState(SEED);
+  const [orders, setOrders] = useState<Order[]>([]);
   const [filter, setFilter] = useState<Status | "ALL">("ALL");
   const [open, setOpen] = useState<string | null>(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
+  const [catalog, setCatalog] = useState<CatalogItem[]>([]);
+  const [selectedItem, setSelectedItem] = useState("");
+  const [qty, setQty] = useState(1);
+  const [agentOrderId, setAgentOrderId] = useState("");
+  const [checkout402, setCheckout402] = useState<Checkout402 | null>(null);
+  const [agentMsg, setAgentMsg] = useState("");
 
   const visible = filter === "ALL" ? orders : orders.filter((o) => o.status === filter);
+
+  async function loadOrders() {
+    setError("");
+    try {
+      const token = getAuthToken();
+      const data = await apiRequest<{
+        orders: Array<{
+          orderId: string;
+          createdAt: string;
+          totalUsd: number;
+          status: Status;
+          lines: Array<{ name: string; qty: number; unitPriceUsd: number }>;
+          payment?: { txSignature?: string };
+        }>;
+      }>("/dashboard/orders", { token });
+
+      setOrders(
+        data.orders.map((o) => ({
+          id: o.orderId,
+          created: new Date(o.createdAt).toLocaleString(),
+          total: o.totalUsd,
+          status: o.status,
+          items: o.lines ?? [],
+          txSignature: o.payment?.txSignature,
+        })),
+      );
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "load_failed");
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function loadCatalog() {
+    try {
+      const data = await apiRequest<{ items: CatalogItem[] }>(
+        `/merchants/${getMerchantSlug()}/catalog`,
+      );
+      setCatalog(data.items ?? []);
+      if (!selectedItem && data.items?.length) setSelectedItem(data.items[0].id);
+    } catch {
+      // keep quiet; orders view can still function without this panel
+    }
+  }
+
+  async function updateStatus(orderId: string, nextStatus: "ACCEPTED" | "READY") {
+    setError("");
+    try {
+      const token = getAuthToken();
+      await apiRequest(`/dashboard/orders/${orderId}/status`, {
+        method: "PATCH",
+        token,
+        body: JSON.stringify({ status: nextStatus }),
+      });
+      await loadOrders();
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "update_status_failed");
+    }
+  }
+
+  useEffect(() => {
+    void loadOrders();
+    void loadCatalog();
+    // Intentionally once on mount.
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
+  }, []);
+
+  async function createAgentOrder() {
+    setAgentMsg("");
+    setCheckout402(null);
+    try {
+      const data = await apiRequest<{ orderId: string }>("/orders", {
+        method: "POST",
+        body: JSON.stringify({
+          merchantSlug: getMerchantSlug(),
+          items: [{ itemId: selectedItem, qty }],
+          fulfillment: { type: "pickup" },
+        }),
+      });
+      setAgentOrderId(data.orderId);
+      setAgentMsg(`Order created: ${data.orderId}`);
+      await loadOrders();
+    } catch (err) {
+      setAgentMsg(`create_order_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
+    }
+  }
+
+  async function request402() {
+    if (!agentOrderId) return;
+    setAgentMsg("");
+    try {
+      const body = await apiRequest<Checkout402>("/orders/checkout", {
+        method: "POST",
+        body: JSON.stringify({ orderId: agentOrderId }),
+        allowHttpStatuses: [402],
+      });
+      setCheckout402(body);
+      setAgentMsg("Received 402 challenge.");
+    } catch (err) {
+      setAgentMsg(`checkout_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
+    }
+  }
+
+  async function submitPayProof() {
+    if (!agentOrderId || !checkout402) return;
+    setAgentMsg("");
+    try {
+      const txSignature = `sig_${agentOrderId}_${Date.now()}`;
+      await apiRequest(`/orders/${agentOrderId}/pay`, {
+        method: "POST",
+        body: JSON.stringify({
+          paymentRequestId: checkout402.paymentRequestId,
+          idempotencyKey: `idem_${agentOrderId}`,
+          txSignature,
+          amount: checkout402.amount,
+          recipient: checkout402.recipient,
+          asset: "USDC",
+          chain: "solana-devnet",
+          reference: checkout402.reference,
+        }),
+      });
+      setAgentMsg("Payment proof accepted. Order is PAID.");
+      await loadOrders();
+    } catch (err) {
+      setAgentMsg(`pay_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
+    }
+  }
 
   return (
     <div>
@@ -59,7 +188,68 @@ function OrdersPage() {
         <span className="size-2 bg-primary" />
         <h1 className="font-mono uppercase tracking-[0.2em] text-sm text-foreground">Orders</h1>
       </div>
-      <div className="text-muted-foreground text-sm mt-1">Live feed · demo data</div>
+      <div className="text-muted-foreground text-sm mt-1">Live feed · API-backed</div>
+      {error && <div className="mono-label text-destructive mt-3">{error}</div>}
+      {loading && <div className="mono-label text-muted-foreground mt-3">Loading...</div>}
+
+      <div className="mt-6 border border-hairline bg-surface-1 p-4">
+        <div className="mono-label text-muted-foreground mb-3">Agentic Checkout UI</div>
+        <div className="grid md:grid-cols-[2fr_1fr_auto_auto_auto] gap-3 items-end">
+          <label className="block">
+            <div className="mono-label text-muted-foreground mb-1">Catalog item</div>
+            <select
+              value={selectedItem}
+              onChange={(e) => setSelectedItem(e.target.value)}
+              className="w-full bg-black border border-hairline px-3 py-2 font-mono text-sm"
+            >
+              {catalog.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} (${c.usd.toFixed(2)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="block">
+            <div className="mono-label text-muted-foreground mb-1">Qty</div>
+            <input
+              type="number"
+              min={1}
+              value={qty}
+              onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
+              className="w-full bg-black border border-hairline px-3 py-2 font-mono text-sm"
+            />
+          </label>
+          <button
+            onClick={createAgentOrder}
+            className="border border-hairline px-3 py-2 mono-label"
+          >
+            1) Create order
+          </button>
+          <button
+            onClick={request402}
+            disabled={!agentOrderId}
+            className="border border-primary text-primary px-3 py-2 mono-label disabled:opacity-50"
+          >
+            2) Get 402
+          </button>
+          <button
+            onClick={submitPayProof}
+            disabled={!checkout402}
+            className="bg-primary text-primary-foreground px-3 py-2 mono-label disabled:opacity-50"
+          >
+            3) Submit pay
+          </button>
+        </div>
+        {agentOrderId && (
+          <div className="mono-label text-muted-foreground mt-3">orderId: {agentOrderId}</div>
+        )}
+        {checkout402 && (
+          <pre className="mt-3 p-3 border border-hairline bg-black text-xs font-mono overflow-x-auto">
+            {JSON.stringify(checkout402, null, 2)}
+          </pre>
+        )}
+        {agentMsg && <div className="mono-label text-muted-foreground mt-3">{agentMsg}</div>}
+      </div>
 
       <div className="flex flex-wrap gap-2 mt-6">
         {FILTERS.map((f) => (
@@ -104,14 +294,17 @@ function OrdersPage() {
               <div onClick={(e) => e.stopPropagation()}>
                 {o.status === "PAID" ? (
                   <button
-                    onClick={() =>
-                      setOrders((cur) =>
-                        cur.map((c) => (c.id === o.id ? { ...c, status: "FULFILLED" } : c)),
-                      )
-                    }
+                    onClick={() => updateStatus(o.id, "ACCEPTED")}
                     className="bg-primary text-primary-foreground px-3 py-1.5 mono-label"
                   >
-                    Mark fulfilled
+                    Accept
+                  </button>
+                ) : o.status === "ACCEPTED" ? (
+                  <button
+                    onClick={() => updateStatus(o.id, "READY")}
+                    className="bg-primary text-primary-foreground px-3 py-1.5 mono-label"
+                  >
+                    Mark ready
                   </button>
                 ) : (
                   <span className="mono-label text-muted-foreground">—</span>
@@ -129,6 +322,9 @@ function OrdersPage() {
                     </li>
                   ))}
                 </ul>
+                {o.txSignature && (
+                  <div className="mono-label text-muted-foreground mt-3">tx: {o.txSignature}</div>
+                )}
               </div>
             )}
           </div>
@@ -145,9 +341,11 @@ function OrdersPage() {
 
 function StatusBadge({ s }: { s: Status }) {
   const map: Record<Status, string> = {
-    PENDING: "border-primary text-primary",
+    AWAITING_PAYMENT: "border-primary text-primary",
     PAID: "border-success text-success",
-    FULFILLED: "border-hairline text-muted-foreground",
+    ACCEPTED: "border-primary text-primary",
+    READY: "border-hairline text-muted-foreground",
+    CANCELLED: "border-destructive text-destructive",
   };
   return <span className={cn("inline-block px-2 py-0.5 border mono-label", map[s])}>{s}</span>;
 }

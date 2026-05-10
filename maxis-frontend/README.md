@@ -30,7 +30,7 @@ Pitch line:
 
 ## Docs
 
-Detailed frontend requirements and UX contracts: **[FRONTEND-SPEC.md](./FRONTEND-SPEC.md)**
+**Single canonical doc** (Notion / gist / other AIs): **[../docs/MAXIS_MASTER_BRIEF.md](../docs/MAXIS_MASTER_BRIEF.md)**
 
 ## Setup
 

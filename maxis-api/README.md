@@ -13,6 +13,8 @@ npm run dev
 
 Server default: `http://localhost:3001`
 
+**Optional smoke test:** with the server running, `./scripts/verify-maxis-demo.sh` (requires `curl` and `jq`).
+
 ## Demo credentials
 
 - Merchant slug: `north-star-cafe`
@@ -55,14 +57,17 @@ curl -X POST http://localhost:3001/orders/checkout \
   -d '{"orderId":"ord_..."}'
 
 # 3) Submit payment proof
+# Use `paymentRequestId` + `amount` (+ optional `idempotencyKey`) from the 402 body.
 curl -X POST http://localhost:3001/orders/ord_.../pay \
   -H "Content-Type: application/json" \
   -d '{
+    "paymentRequestId":"pr_...",
     "txSignature":"demo_tx_signature_1234567890",
-    "amountUsd":9,
-    "recipientWallet":"8H1payoutWalletDemoSolanaAddress",
+    "amount":"9.00",
+    "recipient":"8H1payoutWalletDemoSolanaAddress",
     "asset":"USDC",
     "chain":"solana-devnet",
-    "reference":"ord_..."
+    "reference":"ord_...",
+    "idempotencyKey":"idem_retry_safe_001"
   }'
 ```

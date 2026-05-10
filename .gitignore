@@ -1,3 +1,10 @@
+# Local/private docs only — never commit playbook copies here (master brief stubs below are allowed)
+/docs/*
+!/docs/MAXIS_MASTER_BRIEF.md
+!/docs/NOTION_PROOF_PLAN.md
+!/docs/DEMO_VERIFICATION.md
+
+
 .env
 .env.*
 !.env.example
@@ -7,4 +14,5 @@
 node_modules/
 dist/
 .next/
+.vercel/
 *.log
