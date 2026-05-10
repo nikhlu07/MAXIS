@@ -68,6 +68,7 @@ Agents are moving from answers to actions. Local commerce is still **human UI + 
 | Area | Path |
 |------|------|
 | Backend | [maxis-api/src/server.ts](../maxis-api/src/server.ts) (build: `npm run build` → `dist/`) |
+| Solana program (Anchor) | [maxis-anchor/programs/maxis/src/lib.rs](../maxis-anchor/programs/maxis/src/lib.rs) — `commit_checkout`, `mark_paid` ([README](../maxis-anchor/README.md)) |
 | API quickstart | [maxis-api/README.md](../maxis-api/README.md) |
 | Landing | [maxis-frontend/src/routes/index.tsx](../maxis-frontend/src/routes/index.tsx) |
 | Developers | [maxis-frontend/src/routes/developers.tsx](../maxis-frontend/src/routes/developers.tsx) |
@@ -111,6 +112,7 @@ Agents are moving from answers to actions. Local commerce is still **human UI + 
 - [x] **402** visible in UI (JSON block)  
 - [x] Lifecycle `AWAITING_PAYMENT → PAID → ACCEPTED → READY`  
 - [x] Idempotency key on `/pay` (server cache)  
+- [x] **Custom Anchor program** in repo (`commit_checkout`, `mark_paid`); **402** echoes `anchor.programId` + hash hints  
 - [x] Out of scope stated: no delivery network v1; no “scrape every site” claim  
 
 ---

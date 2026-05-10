@@ -47,7 +47,8 @@
 | `docs/MAXIS_MASTER_BRIEF.md` | **One-file** hackathon proof, verification, APIs, AI handoff |
 | `docs/NOTION_PROOF_PLAN.md` | Redirect → master brief |
 | `docs/DEMO_VERIFICATION.md` | Redirect → master brief |
-| `maxis-api/` | Backend service implementing catalog/order/402/pay/status loop |
+| `maxis-api/` | TypeScript Express backend: catalog / **402** / pay / RPC verify |
+| `maxis-anchor/` | **Anchor** program: `commit_checkout` + `mark_paid` (explorer-verifiable checkout record) |
 | `maxis-frontend/` | Frontend app + UI/UX docs |
 
 ---
@@ -212,6 +213,8 @@ Core proof: **discover -> order -> 402 -> pay -> ready**.
 TypeScript Express API (`src/`, build to `dist/`). Service and endpoints:
 
 - [`maxis-api/README.md`](./maxis-api/README.md)
+
+Solana program (**custom Anchor**): checkout commit PDA + merchant `mark_paid` — [`maxis-anchor/README.md`](./maxis-anchor/README.md)
 
 ---
 

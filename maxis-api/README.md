@@ -51,7 +51,7 @@ Set **`ONCHAIN_PAY_VERIFY=false`** to force the legacy payload-only check (e.g. 
 - `GET /health`
 - `GET /merchants/:slug/catalog`
 - `POST /orders`
-- `POST /orders/checkout` (returns HTTP `402`)
+- `POST /orders/checkout` (returns HTTP **`402`** JSON + `anchor` metadata: program id + SHA-256 hex for `commit_checkout` — see [`../maxis-anchor/README.md`](../maxis-anchor/README.md))
 - `POST /orders/:id/pay`
 - `GET /orders/:id/status`
 

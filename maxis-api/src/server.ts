@@ -1,3 +1,4 @@
+import { createHash } from "node:crypto";
 import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
 import { z } from "zod/v3";
@@ -22,6 +23,13 @@ const USDC_MINT_DEVNET = process.env.USDC_MINT_DEVNET ?? "4zMMC9srt5Ri5X14GAgXha
 const SOLANA_RPC_URL = (process.env.SOLANA_RPC_URL || process.env.HELIUS_RPC_URL || "").trim();
 const ONCHAIN_PAY_VERIFY = process.env.ONCHAIN_PAY_VERIFY !== "false" && SOLANA_RPC_URL.length > 0;
 const CHECKOUT_TTL_MS = Number(process.env.CHECKOUT_TTL_MS || 10 * 60 * 1000);
+/** Matches `declare_id!` in `maxis-anchor/programs/maxis` (override after your own deploy). */
+const MAXIS_ANCHOR_PROGRAM_ID =
+  process.env.MAXIS_ANCHOR_PROGRAM_ID ?? "8xnqY7BbiFDaSKtYjgreQdgNjvvh9nteNs5azqPg6DTX";
+
+function sha256HexUtf8(s: string): string {
+  return createHash("sha256").update(s, "utf8").digest("hex");
+}
 
 const db = {
   merchants: [
@@ -363,6 +371,7 @@ app.post("/orders/checkout", (req: Request, res: Response) => {
   order.checkoutExpiresAt = new Date(Date.now() + CHECKOUT_TTL_MS).toISOString();
 
   const amt = order.totalUsd.toFixed(2);
+  const amountMicroUsdc = String(BigInt(Math.round(order.totalUsd * 1e6)));
 
   res.status(402).json({
     error: "payment_required",
@@ -381,6 +390,20 @@ app.post("/orders/checkout", (req: Request, res: Response) => {
     verification: {
       requiredConfirmations: 1,
       commitment: "confirmed",
+    },
+    anchor: {
+      programId: MAXIS_ANCHOR_PROGRAM_ID,
+      cluster: "solana-devnet",
+      instructions: ["commit_checkout", "mark_paid"],
+      checkoutPdaSeeds: ["checkout", "<orderIdSha256Utf8_32_bytes_hex>"],
+      commitCheckout: {
+        description:
+          "Persist checkout metadata on-chain before/around USDC SPL transfer. See maxis-anchor/README.md.",
+        merchant: merchant.payoutWallet,
+        amountMicroUsdc,
+        orderIdSha256Hex: sha256HexUtf8(order.id),
+        paymentRequestIdSha256Hex: sha256HexUtf8(paymentRequestId),
+      },
     },
   });
 });
