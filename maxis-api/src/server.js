@@ -2,6 +2,7 @@ import express from "express";
 import cors from "cors";
 /** Zod v4 includes a stable v3 API surface (`zod/v3`) — use it for predictable optional keys. */
 import { z } from "zod/v3";
+import { verifyUsdcPaymentToMerchant } from "./solana-verify.js";
 
 const app = express();
 app.use(cors());
@@ -13,6 +14,11 @@ const DEMO_TOKEN = "demo-token";
 /** SPL USDC mint on Solana devnet (override via env for your cluster). */
 const USDC_MINT_DEVNET = process.env.USDC_MINT_DEVNET || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 
+/** Any JSON-RPC URL (Helius, QuickNode, public devnet, etc.). When set, pay may verify on-chain unless opted out. */
+const SOLANA_RPC_URL = (process.env.SOLANA_RPC_URL || process.env.HELIUS_RPC_URL || "").trim();
+/** `false` disables RPC checks (local demo / smoke script). When unset: verify only if `SOLANA_RPC_URL` is set. */
+const ONCHAIN_PAY_VERIFY = process.env.ONCHAIN_PAY_VERIFY !== "false" && SOLANA_RPC_URL.length > 0;
+
 const CHECKOUT_TTL_MS = Number(process.env.CHECKOUT_TTL_MS || 10 * 60 * 1000);
 
 const db = {
@@ -22,7 +28,8 @@ const db = {
       slug: "north-star-cafe",
       name: "North Star Cafe",
       city: "Bangalore",
-      payoutWallet: "8H1payoutWalletDemoSolanaAddress",
+      /** Valid base58 Solana pubkey (required for on-chain pay verify + ATA derivation). */
+      payoutWallet: "CkkwHhMz3tiRcrdLGBRxLvaHchZqTUEFxNLxUcMzYdRZ",
       email: "demo@maxis.local",
       password: "demo123",
     },
@@ -191,7 +198,11 @@ function getOrder(orderId) {
 }
 
 app.get("/health", (_req, res) => {
-  res.json({ ok: true, service: "maxis-api" });
+  res.json({
+    ok: true,
+    service: "maxis-api",
+    onchainPayVerify: ONCHAIN_PAY_VERIFY,
+  });
 });
 
 app.post("/auth/register", (req, res) => {
@@ -371,7 +382,7 @@ app.post("/orders/checkout", (req, res) => {
   });
 });
 
-app.post("/orders/:id/pay", (req, res) => {
+app.post("/orders/:id/pay", async (req, res) => {
   const order = getOrder(req.params.id);
   if (!order) {
     return res.status(404).json({ error: "order_not_found" });
@@ -433,6 +444,23 @@ app.post("/orders/:id/pay", (req, res) => {
     return res.status(409).json({ error: "duplicate_tx_signature" });
   }
 
+  if (ONCHAIN_PAY_VERIFY) {
+    const ov = await verifyUsdcPaymentToMerchant({
+      rpcUrl: SOLANA_RPC_URL,
+      signature: parsed.txSignature,
+      merchantWalletBase58: merchant.payoutWallet,
+      usdcMintBase58: USDC_MINT_DEVNET,
+      expectedUsd: order.totalUsd,
+    });
+    if (!ov.ok) {
+      return res.status(400).json({
+        error: "onchain_verify_failed",
+        code: ov.code,
+        message: ov.message,
+      });
+    }
+  }
+
   order.payment = {
     paymentRequestId: order.activePaymentRequestId,
     txSignature: parsed.txSignature,
@@ -442,6 +470,7 @@ app.post("/orders/:id/pay", (req, res) => {
     asset: parsed.asset,
     chain: parsed.chain,
     mint: USDC_MINT_DEVNET,
+    verifiedOnChain: ONCHAIN_PAY_VERIFY,
   };
   order.status = OrderStatus.PAID;
   order.activePaymentRequestId = null;
@@ -584,4 +613,13 @@ app.listen(PORT, () => {
   console.log("Demo merchant: north-star-cafe");
   console.log("Demo login: demo@maxis.local / demo123");
   console.log(`Demo bearer token: ${DEMO_TOKEN}`);
+  if (ONCHAIN_PAY_VERIFY) {
+    console.log("On-chain USDC pay verify: ENABLED (parsed transaction via RPC)");
+  } else if (SOLANA_RPC_URL) {
+    console.log("On-chain USDC pay verify: disabled (ONCHAIN_PAY_VERIFY=false)");
+  } else {
+    console.log(
+      "On-chain USDC pay verify: OFF — set SOLANA_RPC_URL or HELIUS_RPC_URL (Helius-compatible) for USDC ATA credit checks.",
+    );
+  }
 });

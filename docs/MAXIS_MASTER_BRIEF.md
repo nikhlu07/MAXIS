@@ -8,7 +8,7 @@
 
 Use a short lead-in like:
 
-> Read and follow `docs/MAXIS_MASTER_BRIEF.md` in the MAXIS repo. Do not expand scope beyond MVP. Payment verification is demo-grade until RPC hardening is implemented. Pickup-first only.
+> Read and follow `docs/MAXIS_MASTER_BRIEF.md` in the MAXIS repo. Do not expand scope beyond MVP. Pickup-first only. If `SOLANA_RPC_URL`/`HELIUS_RPC_URL` is unset, pay verification is payload-only; when set, the API verifies USDC credits to the merchant ATA via `getParsedTransaction`.
 
 ---
 
@@ -61,7 +61,7 @@ Agents are moving from answers to actions. Local commerce is still **human UI + 
 
 ### Honesty line (required in pitches)
 
-**MVP payment verification is demo-grade:** server validates payload fields and signature string; it is **not** full on-chain RPC confirmation yet. Roadmap: Solana RPC / indexer + confirmation depth.
+**Payment verification modes:** With **`SOLANA_RPC_URL` or `HELIUS_RPC_URL`** set (and `ONCHAIN_PAY_VERIFY` not `false`), `POST /orders/:id/pay` checks the transaction on-chain: succeeded tx, merchant’s **USDC ATA** balance increased by at least the order total (`getParsedTransaction`). Without an RPC URL, the server only validates structured pay fields (legacy local demo). **`ONCHAIN_PAY_VERIFY=false`** keeps payload-only checks even if an RPC URL is set.
 
 ### Code map (repo-relative)
 
@@ -100,7 +100,7 @@ Agents are moving from answers to actions. Local commerce is still **human UI + 
 | `GET /merchants/:slug/catalog` | Done |
 | `POST /orders` | Done |
 | `POST /orders/checkout` → **402** | Done |
-| `POST /orders/:id/pay` | Done (demo verifier) |
+| `POST /orders/:id/pay` | Done (optional on-chain USDC verify via RPC) |
 | `GET /orders/:id/status` | Done |
 | `GET/PATCH /dashboard/orders…` | Done |
 | `POST /dashboard/catalog` | Done |

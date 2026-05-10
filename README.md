@@ -69,7 +69,7 @@ MAXIS provides a clean machine contract for local merchants:
 1. structured catalog for agents
 2. deterministic order APIs
 3. x402 payment challenge
-4. pay-proof step (MVP: server-side field checks; roadmap: Solana RPC confirmation)
+4. pay-proof step (field checks; **optional** Solana RPC / Helius JSON-RPC parsed-tx USDC verify when `SOLANA_RPC_URL` or `HELIUS_RPC_URL` is set)
 5. merchant dashboard with fulfillment status
 
 ---
@@ -81,7 +81,7 @@ MAXIS provides a clean machine contract for local merchants:
 - Merchant dashboard: catalog + incoming orders + status updates
 - Agent flow: `catalog -> order -> checkout(402) -> pay -> status`
 - Pickup-first fulfillment
-- Devnet-oriented pay flow (MVP verifier does not replace production RPC confirmation)
+- Devnet-oriented pay flow; configure RPC for on-chain USDC credit verification to merchant ATA
 
 ### Out of scope (v1)
 
@@ -143,7 +143,7 @@ sequenceDiagram
     CH-->>A: 402 Payment Required + USDC instructions
     A->>SOL: Send USDC transfer (client/agent)
     A->>API: POST /orders/:id/pay (tx signature + bounded fields)
-    Note over API: MVP validates payload; RPC tx verify is roadmap
+    Note over API: validates payload; optionally confirms USDC to merchant ATA via RPC
     API-->>A: PAID
     API-->>M: Paid order visible
     M->>API: PATCH status = ACCEPTED
@@ -161,7 +161,7 @@ sequenceDiagram
 | `GET` | `/merchants/:slug/catalog` | Read machine-readable catalog |
 | `POST` | `/orders` | Create order for selected items |
 | `POST` | `/orders/checkout` | Return HTTP `402` with payment instructions |
-| `POST` | `/orders/:id/pay` | Submit tx signature / pay-proof (MVP field validation) |
+| `POST` | `/orders/:id/pay` | Submit pay proof; optional on-chain USDC verify when RPC URL is configured |
 | `GET` | `/orders/:id/status` | Poll lifecycle status |
 
 ### Merchant-facing
@@ -200,7 +200,7 @@ AWAITING_PAYMENT -> PAID -> ACCEPTED -> READY
 2. Agent requests order from catalog.
 3. Checkout returns HTTP `402 Payment Required`.
 4. Agent (or demo UI) submits pay proof (`txSignature`, amount, recipient, `paymentRequestId`).
-5. Backend accepts proof under MVP rules; order moves to `PAID` (harden with Solana RPC next).
+5. Backend accepts proof; with RPC configured, confirms USDC ATA credit on-chain; order moves to `PAID`.
 6. Merchant marks order `READY` for pickup.
 
 Core proof: **discover -> order -> 402 -> pay -> ready**.

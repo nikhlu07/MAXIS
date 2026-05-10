@@ -13,7 +13,17 @@ npm run dev
 
 Server default: `http://localhost:3001`
 
-**Optional smoke test:** with the server running, `./scripts/verify-maxis-demo.sh` (requires `curl` and `jq`).
+Copy [.env.example](.env.example) to `.env` if you use env-based config.
+
+**Optional smoke test:** with the server running, `./scripts/verify-maxis-demo.sh` (requires `curl` and `jq`). No RPC URL is required (payload-only pay path).
+
+## On-chain payment verification (Helius / any Solana RPC)
+
+When **`SOLANA_RPC_URL`** or **`HELIUS_RPC_URL`** is set, `POST /orders/:id/pay` calls `getParsedTransaction` and requires a **succeeded** transaction that **credits the merchant’s USDC associated token account** by at least the order total (devnet USDC mint by default).
+
+Set **`ONCHAIN_PAY_VERIFY=false`** to force the legacy payload-only check (e.g. when an RPC URL is present but you are still testing with fake signatures).
+
+`GET /health` returns `{ "onchainPayVerify": true|false }`.
 
 ## Demo credentials
 
@@ -64,7 +74,7 @@ curl -X POST http://localhost:3001/orders/ord_.../pay \
     "paymentRequestId":"pr_...",
     "txSignature":"demo_tx_signature_1234567890",
     "amount":"9.00",
-    "recipient":"8H1payoutWalletDemoSolanaAddress",
+    "recipient":"CkkwHhMz3tiRcrdLGBRxLvaHchZqTUEFxNLxUcMzYdRZ",
     "asset":"USDC",
     "chain":"solana-devnet",
     "reference":"ord_...",
