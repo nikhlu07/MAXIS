@@ -131,20 +131,26 @@ sequenceDiagram
     participant SOL as Solana
     participant M as Merchant Dashboard
 
-    U->>A: "Order 2 coffees for pickup"
+    U->>A: Order 2 coffees for pickup
     A->>API: GET /merchants/:slug/catalog
     API-->>A: Items + prices
+
     A->>API: POST /orders
     API-->>A: order_id + total + AWAITING_PAYMENT
+
     A->>CH: POST /orders/checkout
     CH-->>A: 402 Payment Required + USDC instructions
-    A->>SOL: Send USDC transfer (client/agent)
-    A->>API: POST /orders/:id/pay (tx signature + bounded fields)
-    Note over API: validates payload; optionally confirms USDC to merchant ATA via RPC
+
+    A->>SOL: Send USDC transfer (client or agent)
+
+    A->>API: POST /orders/:id/pay
+    Note over API: Validates payload and optionally confirms USDC transfer via RPC
+
     API-->>A: PAID
     API-->>M: Paid order visible
-    M->>API: PATCH status = ACCEPTED
-    M->>API: PATCH status = READY
+
+    M->>API: PATCH status ACCEPTED
+    M->>API: PATCH status READY
 ```
 
 ---
