@@ -209,7 +209,7 @@ Core proof: **discover -> order -> 402 -> pay -> ready**.
 
 ## Backend
 
-Backend service and endpoint docs:
+TypeScript Express API (`src/`, build to `dist/`). Service and endpoints:
 
 - [`maxis-api/README.md`](./maxis-api/README.md)
 

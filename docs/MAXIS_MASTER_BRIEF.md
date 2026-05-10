@@ -67,7 +67,7 @@ Agents are moving from answers to actions. Local commerce is still **human UI + 
 
 | Area | Path |
 |------|------|
-| Backend | [maxis-api/src/server.js](../maxis-api/src/server.js) |
+| Backend | [maxis-api/src/server.ts](../maxis-api/src/server.ts) (build: `npm run build` → `dist/`) |
 | API quickstart | [maxis-api/README.md](../maxis-api/README.md) |
 | Landing | [maxis-frontend/src/routes/index.tsx](../maxis-frontend/src/routes/index.tsx) |
 | Developers | [maxis-frontend/src/routes/developers.tsx](../maxis-frontend/src/routes/developers.tsx) |

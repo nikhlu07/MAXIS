@@ -1,8 +1,15 @@
-import express from "express";
+import express, { type NextFunction, type Request, type Response } from "express";
 import cors from "cors";
-/** Zod v4 includes a stable v3 API surface (`zod/v3`) — use it for predictable optional keys. */
 import { z } from "zod/v3";
 import { verifyUsdcPaymentToMerchant } from "./solana-verify.js";
+import type {
+  CatalogItemRecord,
+  MerchantRecord,
+  OrderLine,
+  OrderRecord,
+  PayIdempotencyEntry,
+} from "./types.js";
+import { OrderStatus } from "./types.js";
 
 const app = express();
 app.use(cors());
@@ -11,14 +18,9 @@ app.use(express.json());
 const PORT = Number(process.env.PORT || 3001);
 const DEMO_TOKEN = "demo-token";
 
-/** SPL USDC mint on Solana devnet (override via env for your cluster). */
-const USDC_MINT_DEVNET = process.env.USDC_MINT_DEVNET || "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
-
-/** Any JSON-RPC URL (Helius, QuickNode, public devnet, etc.). When set, pay may verify on-chain unless opted out. */
+const USDC_MINT_DEVNET = process.env.USDC_MINT_DEVNET ?? "4zMMC9srt5Ri5X14GAgXhaHii3GnPAEERYPJgZJDncDU";
 const SOLANA_RPC_URL = (process.env.SOLANA_RPC_URL || process.env.HELIUS_RPC_URL || "").trim();
-/** `false` disables RPC checks (local demo / smoke script). When unset: verify only if `SOLANA_RPC_URL` is set. */
 const ONCHAIN_PAY_VERIFY = process.env.ONCHAIN_PAY_VERIFY !== "false" && SOLANA_RPC_URL.length > 0;
-
 const CHECKOUT_TTL_MS = Number(process.env.CHECKOUT_TTL_MS || 10 * 60 * 1000);
 
 const db = {
@@ -28,12 +30,11 @@ const db = {
       slug: "north-star-cafe",
       name: "North Star Cafe",
       city: "Bangalore",
-      /** Valid base58 Solana pubkey (required for on-chain pay verify + ATA derivation). */
       payoutWallet: "CkkwHhMz3tiRcrdLGBRxLvaHchZqTUEFxNLxUcMzYdRZ",
       email: "demo@maxis.local",
       password: "demo123",
     },
-  ],
+  ] as MerchantRecord[],
   catalogItems: [
     {
       id: "item_latte_sm",
@@ -56,18 +57,9 @@ const db = {
       priceUsd: 3.75,
       available: true,
     },
-  ],
-  orders: [],
-  /** @type {Map<string, { status: number; body: object }>} */
-  payIdempotency: new Map(),
-};
-
-const OrderStatus = {
-  AWAITING_PAYMENT: "AWAITING_PAYMENT",
-  PAID: "PAID",
-  ACCEPTED: "ACCEPTED",
-  READY: "READY",
-  CANCELLED: "CANCELLED",
+  ] as CatalogItemRecord[],
+  orders: [] as OrderRecord[],
+  payIdempotency: new Map<string, PayIdempotencyEntry>(),
 };
 
 const createOrderSchema = z.object({
@@ -90,21 +82,16 @@ const paySchema = z
     paymentRequestId: z.string().min(1),
     idempotencyKey: z.string().min(8).max(128).optional(),
     txSignature: z.string().min(10),
-    /** String like "9.00" (recommended) or number */
     amount: z.union([z.string(), z.number()]).optional(),
-    /** @deprecated prefer `amount` */
     amountUsd: z.number().positive().optional(),
     recipient: z.string().min(8).optional(),
-    /** @deprecated prefer `recipient` */
     recipientWallet: z.string().min(8).optional(),
     asset: z.literal("USDC"),
     chain: z.literal("solana-devnet"),
     reference: z.string().min(1),
   })
   .superRefine((data, ctx) => {
-    const hasAmount =
-      data.amount !== undefined ||
-      data.amountUsd !== undefined;
+    const hasAmount = data.amount !== undefined || data.amountUsd !== undefined;
     if (!hasAmount) {
       ctx.addIssue({
         code: z.ZodIssueCode.custom,
@@ -125,11 +112,11 @@ const updateStatusSchema = z.object({
   status: z.enum([OrderStatus.ACCEPTED, OrderStatus.READY, OrderStatus.CANCELLED]),
 });
 
-function roundUsd(value) {
+function roundUsd(value: number): number {
   return Math.round(value * 100) / 100;
 }
 
-function parseAmountToNumber(amount, amountUsd) {
+function parseAmountToNumber(amount: unknown, amountUsd: number | undefined): number {
   if (amountUsd != null) return roundUsd(amountUsd);
   if (typeof amount === "number") return roundUsd(amount);
   const n = Number(String(amount).trim());
@@ -137,34 +124,36 @@ function parseAmountToNumber(amount, amountUsd) {
   return roundUsd(n);
 }
 
-function normalizeRecipient(parsed) {
-  return parsed.recipient ?? parsed.recipientWallet;
+function normalizeRecipient(parsed: z.infer<typeof paySchema>): string {
+  return parsed.recipient ?? parsed.recipientWallet ?? "";
 }
 
-function idempotencyCacheKey(orderId, idempotencyKey) {
+function idempotencyCacheKey(orderId: string, idempotencyKey: string): string {
   return `pay:${orderId}:${idempotencyKey}`;
 }
 
 class ApiError extends Error {
-  constructor(status, error, details = undefined) {
+  constructor(
+    public status: number,
+    public error: string,
+    public details?: unknown,
+  ) {
     super(error);
-    this.status = status;
-    this.error = error;
-    this.details = details;
+    this.name = "ApiError";
   }
 }
 
-function fail(status, error, details = undefined) {
+function fail(status: number, error: string, details?: unknown): never {
   throw new ApiError(status, error, details);
 }
 
-function requireMerchantById(merchantId) {
+function requireMerchantById(merchantId: string): MerchantRecord {
   const merchant = db.merchants.find((m) => m.id === merchantId);
   if (!merchant) fail(500, "merchant_record_missing");
   return merchant;
 }
 
-function zodBody(schema, body) {
+function zodBody<T extends z.ZodType>(schema: T, body: unknown): z.infer<T> {
   const parsed = schema.safeParse(body);
   if (!parsed.success) {
     fail(400, "invalid_payload", { validation: parsed.error.flatten() });
@@ -172,7 +161,7 @@ function zodBody(schema, body) {
   return parsed.data;
 }
 
-function toPublicCatalogItem(item) {
+function toPublicCatalogItem(item: CatalogItemRecord) {
   return {
     id: item.id,
     name: item.name,
@@ -181,23 +170,30 @@ function toPublicCatalogItem(item) {
   };
 }
 
-function authRequired(req, res, next) {
+function authRequired(req: Request, res: Response, next: NextFunction): void {
   const auth = req.headers.authorization ?? "";
   if (auth !== `Bearer ${DEMO_TOKEN}`) {
-    return res.status(401).json({ error: "unauthorized" });
+    res.status(401).json({ error: "unauthorized" });
+    return;
   }
-  return next();
+  next();
 }
 
-function getMerchantBySlug(slug) {
+function getMerchantBySlug(slug: string): MerchantRecord | undefined {
   return db.merchants.find((m) => m.slug === slug);
 }
 
-function getOrder(orderId) {
+function getOrder(orderId: string): OrderRecord | undefined {
   return db.orders.find((order) => order.id === orderId);
 }
 
-app.get("/health", (_req, res) => {
+/** Express 5 may type `req.params` values as `string | string[]`. */
+function routeParam(v: string | string[] | undefined): string {
+  if (v == null) return "";
+  return Array.isArray(v) ? (v[0] ?? "") : v;
+}
+
+app.get("/health", (_req: Request, res: Response) => {
   res.json({
     ok: true,
     service: "maxis-api",
@@ -205,7 +201,7 @@ app.get("/health", (_req, res) => {
   });
 });
 
-app.post("/auth/register", (req, res) => {
+app.post("/auth/register", (req: Request, res: Response) => {
   const bodySchema = z.object({
     name: z.string().min(2),
     slug: z.string().min(2),
@@ -221,16 +217,17 @@ app.post("/auth/register", (req, res) => {
     (m) => m.slug === parsed.slug || m.email.toLowerCase() === parsed.email.toLowerCase(),
   );
   if (exists) {
-    return res.status(409).json({ error: "merchant_exists" });
+    res.status(409).json({ error: "merchant_exists" });
+    return;
   }
 
-  const merchant = {
+  const merchant: MerchantRecord = {
     id: `m_${crypto.randomUUID()}`,
     ...parsed,
   };
   db.merchants.push(merchant);
 
-  return res.status(201).json({
+  res.status(201).json({
     merchant: {
       id: merchant.id,
       name: merchant.name,
@@ -242,7 +239,7 @@ app.post("/auth/register", (req, res) => {
   });
 });
 
-app.post("/auth/login", (req, res) => {
+app.post("/auth/login", (req: Request, res: Response) => {
   const bodySchema = z.object({
     email: z.string().email(),
     password: z.string().min(1),
@@ -253,10 +250,11 @@ app.post("/auth/login", (req, res) => {
     (m) => m.email.toLowerCase() === parsed.email.toLowerCase() && m.password === parsed.password,
   );
   if (!merchant) {
-    return res.status(401).json({ error: "invalid_credentials" });
+    res.status(401).json({ error: "invalid_credentials" });
+    return;
   }
 
-  return res.json({
+  res.json({
     token: DEMO_TOKEN,
     merchant: {
       id: merchant.id,
@@ -268,17 +266,18 @@ app.post("/auth/login", (req, res) => {
   });
 });
 
-app.get("/merchants/:slug/catalog", (req, res) => {
-  const merchant = getMerchantBySlug(req.params.slug);
+app.get("/merchants/:slug/catalog", (req: Request, res: Response) => {
+  const merchant = getMerchantBySlug(routeParam(req.params.slug));
   if (!merchant) {
-    return res.status(404).json({ error: "merchant_not_found" });
+    res.status(404).json({ error: "merchant_not_found" });
+    return;
   }
 
   const items = db.catalogItems
     .filter((item) => item.merchantId === merchant.id)
     .map((item) => toPublicCatalogItem(item));
 
-  return res.json({
+  res.json({
     merchant: {
       slug: merchant.slug,
       name: merchant.name,
@@ -289,15 +288,16 @@ app.get("/merchants/:slug/catalog", (req, res) => {
   });
 });
 
-app.post("/orders", (req, res) => {
+app.post("/orders", (req: Request, res: Response) => {
   const parsed = zodBody(createOrderSchema, req.body);
 
   const merchant = getMerchantBySlug(parsed.merchantSlug);
   if (!merchant) {
-    return res.status(404).json({ error: "merchant_not_found" });
+    res.status(404).json({ error: "merchant_not_found" });
+    return;
   }
 
-  const lines = [];
+  const lines: OrderLine[] = [];
   let totalUsd = 0;
 
   for (const requestItem of parsed.items) {
@@ -305,7 +305,8 @@ app.post("/orders", (req, res) => {
       (catalogItem) => catalogItem.merchantId === merchant.id && catalogItem.id === requestItem.itemId,
     );
     if (!item || !item.available) {
-      return res.status(400).json({ error: "item_unavailable", itemId: requestItem.itemId });
+      res.status(400).json({ error: "item_unavailable", itemId: requestItem.itemId });
+      return;
     }
 
     lines.push({
@@ -319,7 +320,7 @@ app.post("/orders", (req, res) => {
   }
 
   const orderId = `ord_${crypto.randomUUID()}`;
-  const order = {
+  const order: OrderRecord = {
     id: orderId,
     merchantId: merchant.id,
     merchantSlug: merchant.slug,
@@ -334,7 +335,7 @@ app.post("/orders", (req, res) => {
   };
   db.orders.push(order);
 
-  return res.status(201).json({
+  res.status(201).json({
     orderId: order.id,
     status: order.status,
     totalUsd: order.totalUsd,
@@ -343,15 +344,17 @@ app.post("/orders", (req, res) => {
   });
 });
 
-app.post("/orders/checkout", (req, res) => {
+app.post("/orders/checkout", (req: Request, res: Response) => {
   const parsed = zodBody(checkoutSchema, req.body);
 
   const order = getOrder(parsed.orderId);
   if (!order) {
-    return res.status(404).json({ error: "order_not_found" });
+    res.status(404).json({ error: "order_not_found" });
+    return;
   }
   if (order.status !== OrderStatus.AWAITING_PAYMENT) {
-    return res.status(409).json({ error: "order_not_payable", status: order.status });
+    res.status(409).json({ error: "order_not_payable", status: order.status });
+    return;
   }
 
   const merchant = requireMerchantById(order.merchantId);
@@ -361,7 +364,7 @@ app.post("/orders/checkout", (req, res) => {
 
   const amt = order.totalUsd.toFixed(2);
 
-  return res.status(402).json({
+  res.status(402).json({
     error: "payment_required",
     orderId: order.id,
     paymentRequestId,
@@ -382,66 +385,80 @@ app.post("/orders/checkout", (req, res) => {
   });
 });
 
-app.post("/orders/:id/pay", async (req, res) => {
-  const order = getOrder(req.params.id);
+app.post("/orders/:id/pay", async (req: Request, res: Response) => {
+  const order = getOrder(routeParam(req.params.id));
   if (!order) {
-    return res.status(404).json({ error: "order_not_found" });
+    res.status(404).json({ error: "order_not_found" });
+    return;
   }
   if (order.status !== OrderStatus.AWAITING_PAYMENT) {
-    return res.status(409).json({ error: "order_not_payable", status: order.status });
+    res.status(409).json({ error: "order_not_payable", status: order.status });
+    return;
   }
 
   const parsed = zodBody(paySchema, req.body);
 
   if (!order.activePaymentRequestId) {
-    return res.status(400).json({
+    res.status(400).json({
       error: "checkout_required",
       details: { message: "Call POST /orders/checkout first to receive HTTP 402." },
     });
+    return;
   }
   if (parsed.paymentRequestId && parsed.paymentRequestId !== order.activePaymentRequestId) {
-    return res.status(400).json({ error: "invalid_payment_request_id" });
+    res.status(400).json({ error: "invalid_payment_request_id" });
+    return;
   }
   if (!parsed.paymentRequestId) {
-    return res.status(400).json({ error: "payment_request_id_required", expected: order.activePaymentRequestId });
+    res
+      .status(400)
+      .json({ error: "payment_request_id_required", expected: order.activePaymentRequestId });
+    return;
   }
 
   if (parsed.idempotencyKey) {
     const cacheKey = idempotencyCacheKey(order.id, parsed.idempotencyKey);
     const cached = db.payIdempotency.get(cacheKey);
     if (cached) {
-      return res.status(cached.status).json(cached.body);
+      res.status(cached.status).json(cached.body);
+      return;
     }
   }
 
   if (order.checkoutExpiresAt && Date.now() > new Date(order.checkoutExpiresAt).getTime()) {
-    return res.status(408).json({ error: "checkout_expired" });
+    res.status(408).json({ error: "checkout_expired" });
+    return;
   }
 
-  let paidAmountUsd;
+  let paidAmountUsd: number;
   try {
     paidAmountUsd = parseAmountToNumber(parsed.amount, parsed.amountUsd);
   } catch {
-    return res.status(400).json({ error: "invalid_amount_format" });
+    res.status(400).json({ error: "invalid_amount_format" });
+    return;
   }
 
   const merchant = requireMerchantById(order.merchantId);
   const recipient = normalizeRecipient(parsed);
   if (recipient !== merchant.payoutWallet) {
-    return res.status(400).json({ error: "invalid_recipient", expectedRecipient: merchant.payoutWallet });
+    res.status(400).json({ error: "invalid_recipient", expectedRecipient: merchant.payoutWallet });
+    return;
   }
   if (paidAmountUsd !== roundUsd(order.totalUsd)) {
-    return res.status(400).json({
+    res.status(400).json({
       error: "invalid_amount",
       expected: order.totalUsd.toFixed(2),
       received: paidAmountUsd.toFixed(2),
     });
+    return;
   }
   if (parsed.reference !== order.id) {
-    return res.status(400).json({ error: "invalid_reference" });
+    res.status(400).json({ error: "invalid_reference" });
+    return;
   }
   if (db.orders.some((o) => o.payment?.txSignature === parsed.txSignature)) {
-    return res.status(409).json({ error: "duplicate_tx_signature" });
+    res.status(409).json({ error: "duplicate_tx_signature" });
+    return;
   }
 
   if (ONCHAIN_PAY_VERIFY) {
@@ -453,11 +470,12 @@ app.post("/orders/:id/pay", async (req, res) => {
       expectedUsd: order.totalUsd,
     });
     if (!ov.ok) {
-      return res.status(400).json({
+      res.status(400).json({
         error: "onchain_verify_failed",
         code: ov.code,
         message: ov.message,
       });
+      return;
     }
   }
 
@@ -488,16 +506,17 @@ app.post("/orders/:id/pay", async (req, res) => {
     db.payIdempotency.set(cacheKey, { status: 200, body: okBody });
   }
 
-  return res.json(okBody);
+  res.json(okBody);
 });
 
-app.get("/orders/:id/status", (req, res) => {
-  const order = getOrder(req.params.id);
+app.get("/orders/:id/status", (req: Request, res: Response) => {
+  const order = getOrder(routeParam(req.params.id));
   if (!order) {
-    return res.status(404).json({ error: "order_not_found" });
+    res.status(404).json({ error: "order_not_found" });
+    return;
   }
 
-  return res.json({
+  res.json({
     orderId: order.id,
     status: order.status,
     totalUsd: order.totalUsd,
@@ -506,7 +525,7 @@ app.get("/orders/:id/status", (req, res) => {
   });
 });
 
-app.get("/dashboard/orders", authRequired, (_req, res) => {
+app.get("/dashboard/orders", authRequired, (_req: Request, res: Response) => {
   const orders = db.orders.map((order) => ({
     orderId: order.id,
     merchantSlug: order.merchantSlug,
@@ -516,35 +535,39 @@ app.get("/dashboard/orders", authRequired, (_req, res) => {
     payment: order.payment,
     createdAt: order.createdAt,
   }));
-  return res.json({ orders });
+  res.json({ orders });
 });
 
-app.patch("/dashboard/orders/:id/status", authRequired, (req, res) => {
-  const order = getOrder(req.params.id);
+app.patch("/dashboard/orders/:id/status", authRequired, (req: Request, res: Response) => {
+  const order = getOrder(routeParam(req.params.id));
   if (!order) {
-    return res.status(404).json({ error: "order_not_found" });
+    res.status(404).json({ error: "order_not_found" });
+    return;
   }
 
   const parsed = zodBody(updateStatusSchema, req.body);
 
   if (parsed.status === OrderStatus.ACCEPTED && order.status !== OrderStatus.PAID) {
-    return res.status(409).json({ error: "only_paid_orders_can_be_accepted" });
+    res.status(409).json({ error: "only_paid_orders_can_be_accepted" });
+    return;
   }
   if (parsed.status === OrderStatus.READY && order.status !== OrderStatus.ACCEPTED) {
-    return res.status(409).json({ error: "only_accepted_orders_can_be_ready" });
+    res.status(409).json({ error: "only_accepted_orders_can_be_ready" });
+    return;
   }
   if (parsed.status === OrderStatus.CANCELLED && order.status === OrderStatus.READY) {
-    return res.status(409).json({ error: "ready_orders_cannot_be_cancelled" });
+    res.status(409).json({ error: "ready_orders_cannot_be_cancelled" });
+    return;
   }
 
   order.status = parsed.status;
-  return res.json({
+  res.json({
     orderId: order.id,
     status: order.status,
   });
 });
 
-app.post("/dashboard/catalog", authRequired, (req, res) => {
+app.post("/dashboard/catalog", authRequired, (req: Request, res: Response) => {
   const schema = z.object({
     merchantSlug: z.string().min(1),
     items: z
@@ -562,7 +585,8 @@ app.post("/dashboard/catalog", authRequired, (req, res) => {
 
   const merchant = getMerchantBySlug(parsed.merchantSlug);
   if (!merchant) {
-    return res.status(404).json({ error: "merchant_not_found" });
+    res.status(404).json({ error: "merchant_not_found" });
+    return;
   }
 
   const existingIds = new Set(parsed.items.map((item) => item.id));
@@ -582,30 +606,32 @@ app.post("/dashboard/catalog", authRequired, (req, res) => {
     }
   }
 
-  return res.json({
+  res.json({
     merchantSlug: merchant.slug,
     totalItems: db.catalogItems.filter((item) => item.merchantId === merchant.id).length,
   });
 });
 
-app.use((req, res) => {
+app.use((req: Request, res: Response) => {
   res.status(404).json({ error: "not_found", path: req.path });
 });
 
-app.use((err, _req, res, _next) => {
-  if (err instanceof SyntaxError && "body" in err) {
-    return res.status(400).json({ error: "invalid_json" });
+app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
+  if (err instanceof SyntaxError && err !== null && typeof err === "object" && "body" in err) {
+    res.status(400).json({ error: "invalid_json" });
+    return;
   }
 
   if (err instanceof ApiError) {
-    return res.status(err.status).json({
+    res.status(err.status).json({
       error: err.error,
       ...(err.details ? { details: err.details } : {}),
     });
+    return;
   }
 
   console.error("Unhandled API error:", err);
-  return res.status(500).json({ error: "internal_server_error" });
+  res.status(500).json({ error: "internal_server_error" });
 });
 
 app.listen(PORT, () => {

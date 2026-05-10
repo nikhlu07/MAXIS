@@ -6,9 +6,22 @@ Backend service for the MAXIS end-to-end demo flow:
 
 ## Run
 
+**Stack:** TypeScript (`src/`), strict `tsc` build to `dist/`, dev server via `tsx`.
+
 ```bash
 npm install
-npm run dev
+npm run dev          # watch + run src/server.ts (hot restart on save)
+```
+
+Production / Docker-style:
+
+```bash
+npm run build        # emits dist/
+npm start            # node dist/server.js
+```
+
+```bash
+npm run typecheck    # tsc --noEmit
 ```
 
 Server default: `http://localhost:3001`

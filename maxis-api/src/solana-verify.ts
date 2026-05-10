@@ -2,40 +2,46 @@
  * Verifies a Solana transaction credited the merchant's USDC ATA by at least `expectedUsd`.
  * Works with any JSON-RPC endpoint (Helius, QuickNode, public devnet, etc.).
  */
-import { Connection, PublicKey } from "@solana/web3.js";
+import {
+  Connection,
+  type ParsedMessage,
+  type ParsedTransactionWithMeta,
+  PublicKey,
+} from "@solana/web3.js";
 import { TOKEN_PROGRAM_ID, getAssociatedTokenAddressSync } from "@solana/spl-token";
 
-/** @param {import('@solana/web3.js').ParsedTransactionWithMeta['transaction']['message']} msg */
-function accountKeysFromParsedMessage(msg) {
-  const raw = msg.accountKeys;
-  if (!raw?.length) return [];
-  const first = raw[0];
-  if (first instanceof PublicKey) {
-    return raw.map((k) => /** @type {PublicKey} */ (k).toBase58());
-  }
-  if (first && typeof first === "object" && "pubkey" in first) {
-    return raw.map((k) => /** @type {{ pubkey: PublicKey }} */ (k).pubkey.toBase58());
-  }
-  return raw.map((k) =>
-    k instanceof PublicKey ? k.toBase58() : String(k),
-  );
+type TokenBal = NonNullable<NonNullable<ParsedTransactionWithMeta["meta"]>["postTokenBalances"]>[number];
+
+function accountKeysFromParsedMessage(msg: ParsedMessage): string[] {
+  return msg.accountKeys.map((k): string => {
+    if (typeof k === "string") return k;
+    if (k instanceof PublicKey) return k.toBase58();
+    if (k && typeof k === "object" && "pubkey" in k) {
+      return (k as { pubkey: PublicKey }).pubkey.toBase58();
+    }
+    return String(k);
+  });
 }
 
-/**
- * @param {object} opts
- * @param {string} opts.rpcUrl
- * @param {string} opts.signature
- * @param {string} opts.merchantWalletBase58 Merchant's main wallet (owner of USDC ATA).
- * @param {string} opts.usdcMintBase58
- * @param {number} opts.expectedUsd
- * @returns {Promise<{ ok: true } | { ok: false; code: string; message: string }>}
- */
-export async function verifyUsdcPaymentToMerchant(opts) {
+export type VerifyUsdcParams = {
+  rpcUrl: string;
+  signature: string;
+  /** Merchant main wallet (owner of USDC ATA). */
+  merchantWalletBase58: string;
+  usdcMintBase58: string;
+  expectedUsd: number;
+};
+
+export type VerifyUsdcResult =
+  | { ok: true }
+  | { ok: false; code: string; message: string };
+
+export async function verifyUsdcPaymentToMerchant(opts: VerifyUsdcParams): Promise<VerifyUsdcResult> {
   const { rpcUrl, signature, merchantWalletBase58, usdcMintBase58, expectedUsd } = opts;
 
-  let merchantOwner;
-  let mintPk;
-  let destAta;
+  let merchantOwner: PublicKey;
+  let mintPk: PublicKey;
+  let destAta: PublicKey;
   try {
     merchantOwner = new PublicKey(merchantWalletBase58);
     mintPk = new PublicKey(usdcMintBase58);
@@ -49,14 +55,13 @@ export async function verifyUsdcPaymentToMerchant(opts) {
   }
 
   const destAtaStr = destAta.toBase58();
-  /** Smallest units (USDC = 6 decimals). */
   const expectedRaw = BigInt(Math.round(Number(expectedUsd) * 1e6));
   if (expectedRaw <= 0n) {
     return { ok: false, code: "invalid_expected_amount", message: "expectedUsd must be positive" };
   }
 
   const connection = new Connection(rpcUrl, "confirmed");
-  let parsed;
+  let parsed: ParsedTransactionWithMeta | null;
   try {
     parsed = await connection.getParsedTransaction(signature, {
       commitment: "confirmed",
@@ -87,7 +92,6 @@ export async function verifyUsdcPaymentToMerchant(opts) {
   }
 
   const accountKeys = accountKeysFromParsedMessage(parsed.transaction.message);
-
   const ataIndex = accountKeys.indexOf(destAtaStr);
   if (ataIndex === -1) {
     return {
@@ -97,11 +101,10 @@ export async function verifyUsdcPaymentToMerchant(opts) {
     };
   }
 
-  /** @param {readonly import('@solana/web3.js').ParsedTransactionWithMeta["meta"]["preTokenBalances"]} balances */
-  function amountAtIndex(balances, index) {
+  function amountAtIndex(balances: readonly TokenBal[] | null | undefined, index: number): bigint {
     const row = (balances ?? []).find(
-      (b) =>
-        b.accountIndex === index && b.mint === usdcMintBase58 && typeof b?.uiTokenAmount?.amount === "string",
+      (b: TokenBal) =>
+        b.accountIndex === index && b.mint === usdcMintBase58 && typeof b.uiTokenAmount?.amount === "string",
     );
     if (!row) return 0n;
     try {
