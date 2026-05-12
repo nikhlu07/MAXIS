@@ -1,4 +1,5 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
+import { useEffect, useState } from "react";
 import { NavBar } from "@/components/maxis/NavBar";
 import { Footer } from "@/components/maxis/Footer";
 import { HudPanel, Brackets, SectionLabel } from "@/components/maxis/HudPanel";
@@ -8,7 +9,22 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { landingCatalogSnippet } from "@maxis/demo-data";
+import { DEMO_MERCHANT, landingCatalogSnippet } from "@maxis/demo-data";
+import { apiRequest } from "@/lib/api";
+
+function parseEnvUsd(key: string, fallback: number): number {
+  const raw = import.meta.env[key] as string | undefined;
+  if (raw === undefined || raw === "") return fallback;
+  const v = parseFloat(raw);
+  return Number.isFinite(v) && v >= 0 ? v : fallback;
+}
+
+const PILOT_MONTHLY_USD = parseEnvUsd("VITE_PILOT_MONTHLY_USD", 29);
+const PILOT_PER_ORDER_USD = parseEnvUsd("VITE_PILOT_PER_ORDER_USD", 0.15);
+
+function formatUsd(n: number): string {
+  return Number.isInteger(n) ? String(n) : n.toFixed(2);
+}
 
 export const Route = createFileRoute("/")({
   head: () => ({
@@ -25,6 +41,36 @@ export const Route = createFileRoute("/")({
 });
 
 function Landing() {
+  const [catalogSnippet, setCatalogSnippet] = useState(() => landingCatalogSnippet());
+
+  useEffect(() => {
+    let cancelled = false;
+    void (async () => {
+      try {
+        const data = await apiRequest<{
+          items: Array<{ id: string; name: string; usd: number }>;
+        }>(`/merchants/${DEMO_MERCHANT.slug}/catalog`);
+        if (cancelled) return;
+        const items = (data.items ?? []).slice(0, 2).map((i) => ({
+          id: i.id,
+          name: i.name,
+          usd: i.usd,
+        }));
+        setCatalogSnippet(
+          JSON.stringify({ merchant: DEMO_MERCHANT.slug, items }, null, 2),
+        );
+      } catch {
+        /* keep seeded snippet when API is down */
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, []);
+
+  const pilotMonthlyLabel = formatUsd(PILOT_MONTHLY_USD);
+  const pilotPerOrderLabel = formatUsd(PILOT_PER_ORDER_USD);
+
   return (
     <div className="bg-black text-foreground">
       <NavBar />
@@ -135,10 +181,12 @@ function Landing() {
           <HudPanel className="bg-surface-2">
             <div className="mono-label text-muted-foreground">Pilot tier</div>
             <div className="flex items-baseline gap-2 mt-3">
-              <span className="text-5xl font-semibold">$29</span>
+              <span className="text-5xl font-semibold">${pilotMonthlyLabel}</span>
               <span className="text-muted-foreground">/ mo</span>
             </div>
-            <div className="font-mono text-sm text-primary mt-1">+ $0.15 / order</div>
+            <div className="font-mono text-sm text-primary mt-1">
+              + ${pilotPerOrderLabel} / order
+            </div>
             <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
               <li>— Hosted catalog endpoint</li>
               <li>— Agent order APIs + 402 checkout</li>
@@ -179,7 +227,7 @@ function Landing() {
             <Brackets />
             <pre className="border border-hairline bg-surface-1 p-5 text-xs font-mono overflow-x-auto">
               {`GET  /merchants/:slug/catalog
-${landingCatalogSnippet()}
+${catalogSnippet}
 
 POST /orders
 → 201 { "order_id": "ord_8H…", "total_usd": 9.00, "status": "AWAITING_PAYMENT" }

@@ -1,5 +1,5 @@
 import { createFileRoute } from "@tanstack/react-router";
-import { useEffect, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { Trash2 } from "lucide-react";
 import type { DemoCatalogItemUi } from "@maxis/demo-data";
 import { demoCatalogAsUiItems } from "@maxis/demo-data";
@@ -36,29 +36,24 @@ function CatalogPage() {
   const [cat, setCat] = useState("");
   const [statusMsg, setStatusMsg] = useState("");
 
-  useEffect(() => {
-    let cancelled = false;
-    async function load() {
-      setSource("loading");
-      try {
-        const slug = getMerchantSlug();
-        const data = await apiRequest<{
-          items: Array<{ id: string; name: string; usd: number; available: boolean }>;
-        }>(`/merchants/${slug}/catalog`);
-        if (cancelled) return;
-        setItems(mapApiCatalogToItems(data.items ?? []));
-        setSource("api");
-      } catch {
-        if (cancelled) return;
-        setItems(demoCatalogAsUiItems());
-        setSource("fixture");
-      }
+  const loadCatalog = useCallback(async () => {
+    setSource("loading");
+    try {
+      const slug = getMerchantSlug();
+      const data = await apiRequest<{
+        items: Array<{ id: string; name: string; usd: number; available: boolean }>;
+      }>(`/merchants/${slug}/catalog`);
+      setItems(mapApiCatalogToItems(data.items ?? []));
+      setSource("api");
+    } catch {
+      setItems(demoCatalogAsUiItems());
+      setSource("fixture");
     }
-    void load();
-    return () => {
-      cancelled = true;
-    };
   }, []);
+
+  useEffect(() => {
+    void loadCatalog();
+  }, [loadCatalog]);
 
   const subtitle =
     source === "loading"
@@ -119,7 +114,7 @@ function CatalogPage() {
                 }),
               });
               setStatusMsg("Saved to API → stored in Postgres (e.g. Supabase)");
-              setSource("api");
+              await loadCatalog();
             } catch (err) {
               setStatusMsg(`save_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
             }
@@ -173,7 +168,25 @@ function CatalogPage() {
             <div className="font-medium">
               {it.name} <span className="font-mono text-xs text-muted-foreground">· {it.id}</span>
             </div>
-            <div className="font-mono text-sm">${it.usd.toFixed(2)}</div>
+            <div>
+              <label className="sr-only" htmlFor={`price-${it.id}`}>
+                Price USD
+              </label>
+              <input
+                id={`price-${it.id}`}
+                type="number"
+                inputMode="decimal"
+                min={0.01}
+                step="0.01"
+                value={Number.isFinite(it.usd) ? it.usd : 0}
+                onChange={(e) => {
+                  const v = parseFloat(e.target.value);
+                  if (Number.isNaN(v)) return;
+                  setItems((c) => c.map((x) => (x.id === it.id ? { ...x, usd: v } : x)));
+                }}
+                className="w-full max-w-[7rem] bg-black border border-hairline px-2 py-1.5 font-mono text-sm focus:border-primary outline-none"
+              />
+            </div>
             <div className="text-sm text-muted-foreground">{it.category ?? "—"}</div>
             <div>
               <label className="inline-flex items-center gap-2 cursor-pointer">
