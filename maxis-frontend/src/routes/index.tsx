@@ -19,8 +19,9 @@ function parseEnvUsd(key: string, fallback: number): number {
   return Number.isFinite(v) && v >= 0 ? v : fallback;
 }
 
-const PILOT_MONTHLY_USD = parseEnvUsd("VITE_PILOT_MONTHLY_USD", 29);
-const PILOT_PER_ORDER_USD = parseEnvUsd("VITE_PILOT_PER_ORDER_USD", 0.15);
+/** Pilot card defaults: $19/mo flat (pitch option B). Env: `VITE_PILOT_MONTHLY_USD`, `VITE_PILOT_PER_ORDER_USD` (0 hides per-order line). */
+const PILOT_MONTHLY_USD = parseEnvUsd("VITE_PILOT_MONTHLY_USD", 19);
+const PILOT_PER_ORDER_USD = parseEnvUsd("VITE_PILOT_PER_ORDER_USD", 0);
 
 function formatUsd(n: number): string {
   return Number.isInteger(n) ? String(n) : n.toFixed(2);
@@ -185,7 +186,13 @@ function Landing() {
               <span className="text-muted-foreground">/ mo</span>
             </div>
             <div className="font-mono text-sm text-primary mt-1">
-              + ${pilotPerOrderLabel} / order
+              {PILOT_MONTHLY_USD === 0 && PILOT_PER_ORDER_USD > 0 ? (
+                <>+ ${pilotPerOrderLabel} per paid order</>
+              ) : PILOT_PER_ORDER_USD > 0 ? (
+                <>+ ${pilotPerOrderLabel} / paid order</>
+              ) : (
+                <>No per-order fee during pilot window</>
+              )}
             </div>
             <ul className="mt-6 space-y-2 text-sm text-muted-foreground">
               <li>— Hosted catalog endpoint</li>
