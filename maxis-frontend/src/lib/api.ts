@@ -1,9 +1,21 @@
 import { DEFAULT_PUBLIC_API_BASE } from "./production-api-default";
 
+function isLoopbackApiOrigin(url: string): boolean {
+  try {
+    const { hostname } = new URL(url);
+    return hostname === "localhost" || hostname === "127.0.0.1" || hostname === "[::1]";
+  } catch {
+    return false;
+  }
+}
+
 function resolveApiBase(): string {
   const fromEnv = (import.meta.env.VITE_API_BASE_URL as string | undefined)?.replace(/\/$/, "")?.trim();
-  if (fromEnv) return fromEnv;
-  // Production builds without VITE_API_BASE_URL would otherwise ship localhost and break login on Vercel.
+  // Vercel often has VITE_API_BASE_URL copied from .env.example as http://localhost:3001. That value is
+  // baked in at build time and would override a sensible default — browsers then call the visitor's PC, not your API.
+  if (fromEnv && !(import.meta.env.PROD && isLoopbackApiOrigin(fromEnv))) {
+    return fromEnv;
+  }
   if (import.meta.env.PROD) return DEFAULT_PUBLIC_API_BASE.replace(/\/$/, "");
   return "http://localhost:3001";
 }
