@@ -124,6 +124,20 @@ function normalizeRecipient(parsed: z.infer<typeof paySchema>): string {
   return parsed.recipient ?? parsed.recipientWallet ?? "";
 }
 
+const solanaPayoutAddressSchema = z
+  .string()
+  .trim()
+  .min(32)
+  .max(44)
+  .superRefine((s, ctx) => {
+    try {
+      // eslint-disable-next-line no-new
+      new PublicKey(s);
+    } catch {
+      ctx.addIssue({ code: z.ZodIssueCode.custom, message: "invalid_solana_address" });
+    }
+  });
+
 function idempotencyCacheKey(orderId: string, idempotencyKey: string): string {
   return `pay:${orderId}:${idempotencyKey}`;
 }
@@ -198,6 +212,15 @@ function paymentJson(order: OrderWithLines) {
   };
 }
 
+app.get("/", (_req: Request, res: Response) => {
+  res.json({
+    ok: true,
+    service: "maxis-api",
+    message: "MAXIS API is running. Use GET /health to verify.",
+    health: "/health",
+  });
+});
+
 app.get("/health", (_req: Request, res: Response) => {
   res.json({
     ok: true,
@@ -213,10 +236,11 @@ app.post("/auth/register", async (req: Request, res: Response) => {
     city: z.string().min(1),
     email: z.string().email(),
     password: z.string().min(6),
-    payoutWallet: z.string().min(8),
+    payoutWallet: solanaPayoutAddressSchema,
   });
 
   const parsed = zodBody(bodySchema, req.body);
+  const payoutNormalized = new PublicKey(parsed.payoutWallet.trim()).toBase58();
   const emailLower = parsed.email.toLowerCase();
 
   const conflict = await prisma.merchant.findFirst({
@@ -236,7 +260,7 @@ app.post("/auth/register", async (req: Request, res: Response) => {
       city: parsed.city,
       email: emailLower,
       passwordHash,
-      payoutWallet: parsed.payoutWallet,
+      payoutWallet: payoutNormalized,
     },
   });
 
@@ -609,6 +633,84 @@ app.get("/orders/:id/status", async (req: Request, res: Response) => {
     totalUsd: decToNum(order.totalUsd),
     payment: paymentJson(order),
     fulfillment: order.fulfillment,
+  });
+});
+
+const patchProfileSchema = z
+  .object({
+    name: z.string().min(2).optional(),
+    city: z.string().min(1).optional(),
+    payoutWallet: z.string().optional(),
+  })
+  .superRefine((d, ctx) => {
+    const hasAny =
+      d.name !== undefined || d.city !== undefined || d.payoutWallet !== undefined;
+    if (!hasAny) {
+      ctx.addIssue({
+        code: z.ZodIssueCode.custom,
+        message: "provide_at_least_one_field",
+      });
+    }
+    if (d.payoutWallet !== undefined) {
+      const t = d.payoutWallet.trim();
+      if (!t) {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "payout_wallet_empty",
+          path: ["payoutWallet"],
+        });
+        return;
+      }
+      try {
+        // eslint-disable-next-line no-new
+        new PublicKey(t);
+      } catch {
+        ctx.addIssue({
+          code: z.ZodIssueCode.custom,
+          message: "invalid_solana_address",
+          path: ["payoutWallet"],
+        });
+      }
+    }
+  });
+
+app.get("/dashboard/profile", authRequired, async (req: Request, res: Response) => {
+  const merchant = await prisma.merchant.findUnique({
+    where: { id: req.merchant!.sub },
+  });
+  if (!merchant) {
+    res.status(404).json({ error: "merchant_not_found" });
+    return;
+  }
+  res.json({
+    id: merchant.id,
+    name: merchant.name,
+    slug: merchant.slug,
+    city: merchant.city,
+    email: merchant.email,
+    payoutWallet: merchant.payoutWallet,
+  });
+});
+
+app.patch("/dashboard/profile", authRequired, async (req: Request, res: Response) => {
+  const parsed = zodBody(patchProfileSchema, req.body);
+  const data: { name?: string; city?: string; payoutWallet?: string } = {};
+  if (parsed.name !== undefined) data.name = parsed.name;
+  if (parsed.city !== undefined) data.city = parsed.city;
+  if (parsed.payoutWallet !== undefined) {
+    data.payoutWallet = new PublicKey(parsed.payoutWallet.trim()).toBase58();
+  }
+  const merchant = await prisma.merchant.update({
+    where: { id: req.merchant!.sub },
+    data,
+  });
+  res.json({
+    id: merchant.id,
+    name: merchant.name,
+    slug: merchant.slug,
+    city: merchant.city,
+    email: merchant.email,
+    payoutWallet: merchant.payoutWallet,
   });
 });
 
