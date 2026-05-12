@@ -18,14 +18,14 @@ export function NavBar() {
           <Link to="/developers" className="text-muted-foreground hover:text-foreground">
             Developers
           </Link>
-          <Link to="/login" className="text-muted-foreground hover:text-foreground">
-            Sign in
+          <Link to="/register" className="text-muted-foreground hover:text-foreground">
+            Register
           </Link>
           <Link
-            to="/register"
+            to="/login"
             className="bg-primary text-primary-foreground px-4 py-2 hover:opacity-90"
           >
-            Get started →
+            Try demo →
           </Link>
         </nav>
         <button
@@ -44,15 +44,15 @@ export function NavBar() {
           <Link to="/developers" onClick={() => setOpen(false)}>
             Developers
           </Link>
-          <Link to="/login" onClick={() => setOpen(false)}>
-            Sign in
+          <Link to="/register" onClick={() => setOpen(false)}>
+            Register
           </Link>
           <Link
-            to="/register"
+            to="/login"
             onClick={() => setOpen(false)}
             className="bg-primary text-primary-foreground px-4 py-2 inline-block w-fit"
           >
-            Get started →
+            Try demo →
           </Link>
         </div>
       )}

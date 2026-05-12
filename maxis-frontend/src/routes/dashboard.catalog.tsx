@@ -4,7 +4,7 @@ import { Trash2 } from "lucide-react";
 import type { DemoCatalogItemUi } from "@maxis/demo-data";
 import { demoCatalogAsUiItems } from "@maxis/demo-data";
 import { apiRequest } from "@/lib/api";
-import { getAuthToken, getMerchantSlug } from "@/lib/auth";
+import { getAuthToken, getMerchantSlug, isOfflineDemoSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/catalog")({
   head: () => ({ meta: [{ title: "Catalog — M.A.X.I.S." }] }),
@@ -37,6 +37,11 @@ function CatalogPage() {
   const [statusMsg, setStatusMsg] = useState("");
 
   const loadCatalog = useCallback(async () => {
+    if (isOfflineDemoSession()) {
+      setItems(demoCatalogAsUiItems());
+      setSource("fixture");
+      return;
+    }
     setSource("loading");
     try {
       const slug = getMerchantSlug();
@@ -58,9 +63,11 @@ function CatalogPage() {
   const subtitle =
     source === "loading"
       ? "Loading catalog…"
-      : source === "api"
-        ? "Loaded from API (Postgres / Supabase via Prisma backend)"
-        : "API unreachable · showing fixtures from shared/maxis-demo-data.ts";
+        : source === "api"
+          ? "Loaded from API (Postgres / Supabase via Prisma backend)"
+          : isOfflineDemoSession()
+            ? "Sample mode · bundled fixtures only (nothing is saved)"
+            : "API unreachable · showing fixtures from shared/maxis-demo-data.ts";
 
   const add = (e: React.FormEvent) => {
     e.preventDefault();
@@ -97,6 +104,10 @@ function CatalogPage() {
         </button>
         <button
           onClick={async () => {
+            if (isOfflineDemoSession()) {
+              setStatusMsg("Sample mode — connect API + database to save.");
+              return;
+            }
             setStatusMsg("");
             try {
               const token = getAuthToken();
@@ -119,7 +130,8 @@ function CatalogPage() {
               setStatusMsg(`save_failed: ${err instanceof Error ? err.message : "unknown_error"}`);
             }
           }}
-          className="border border-primary text-primary px-3 py-2 mono-label"
+          disabled={isOfflineDemoSession()}
+          className="border border-primary text-primary px-3 py-2 mono-label disabled:opacity-40 disabled:pointer-events-none"
         >
           Save to API
         </button>

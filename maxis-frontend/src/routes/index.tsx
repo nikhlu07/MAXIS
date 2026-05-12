@@ -93,10 +93,10 @@ function Landing() {
               </div>
               <div className="flex flex-wrap gap-3 pt-2">
                 <Link
-                  to="/register"
+                  to="/login"
                   className="bg-primary text-primary-foreground px-5 py-3 mono-label hover:opacity-90"
                 >
-                  Get started ▸
+                  Try the app ▸
                 </Link>
                 <Link
                   to="/developers"
@@ -201,10 +201,10 @@ function Landing() {
               <li>— Wallet-direct settlement</li>
             </ul>
             <Link
-              to="/register"
+              to="/login"
               className="mt-6 block text-center bg-primary text-primary-foreground px-5 py-3 mono-label"
             >
-              Start pilot ▸
+              Try the app ▸
             </Link>
             <div className="mono-label text-muted-foreground mt-4">Draft · subject to change</div>
           </HudPanel>

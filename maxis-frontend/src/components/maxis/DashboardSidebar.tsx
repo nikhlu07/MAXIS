@@ -1,7 +1,8 @@
 import { Link, useRouterState, useNavigate } from "@tanstack/react-router";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Menu, X, ListOrdered, BookOpen, Settings, LogOut } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { clearAuth, isOfflineDemoSession } from "@/lib/auth";
 
 const items = [
   { to: "/dashboard/orders", label: "Orders", icon: ListOrdered },
@@ -13,6 +14,12 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
   const [open, setOpen] = useState(false);
   const path = useRouterState({ select: (s) => s.location.pathname });
   const nav = useNavigate();
+  const [offlineBanner, setOfflineBanner] = useState(false);
+
+  useEffect(() => {
+    setOfflineBanner(isOfflineDemoSession());
+  }, [path]);
+
   return (
     <div className="min-h-screen bg-black flex">
       {/* Mobile bar */}
@@ -59,14 +66,37 @@ export function DashboardLayout({ children }: { children: React.ReactNode }) {
             );
           })}
           <button
-            onClick={() => nav({ to: "/" })}
+            onClick={() => {
+              clearAuth();
+              nav({ to: "/login" });
+            }}
             className="flex items-center gap-3 px-3 py-2 mono-label text-muted-foreground hover:text-foreground border border-transparent hover:border-hairline mt-4"
           >
             <LogOut size={14} /> Logout
           </button>
         </nav>
       </aside>
-      <main className="flex-1 min-w-0 md:p-8 p-4 pt-16 md:pt-8">{children}</main>
+      <main className="flex-1 min-w-0 md:p-8 p-4 pt-16 md:pt-8">
+        {offlineBanner && (
+          <div className="mb-6 border border-warning/50 bg-warning/10 px-4 py-3 text-sm text-warning">
+            <span className="mono-label">Sample mode</span>
+            <span className="text-muted-foreground ml-2">
+              No API session — fixtures only. Orders / pay flows need a running API + Postgres.
+            </span>
+            <button
+              type="button"
+              onClick={() => {
+                clearAuth();
+                nav({ to: "/login" });
+              }}
+              className="ml-3 mono-label underline text-foreground hover:text-primary"
+            >
+              Exit sample mode
+            </button>
+          </div>
+        )}
+        {children}
+      </main>
     </div>
   );
 }

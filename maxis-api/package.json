@@ -14,6 +14,7 @@
     "db:migrate": "prisma migrate dev",
     "db:seed": "tsx prisma/seed.ts",
     "db:setup": "prisma db push && tsx prisma/seed.ts",
+    "db:ping": "tsx scripts/check-db.ts",
     "verify:demo": "node scripts/verify-demo.mjs",
     "test:api": "node scripts/verify-demo.mjs",
     "db:studio": "prisma studio",

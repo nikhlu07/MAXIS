@@ -1,7 +1,8 @@
 import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { AlertTriangle } from "lucide-react";
-import { getAuthToken } from "@/lib/auth";
+import { DEMO_MERCHANT } from "@maxis/demo-data";
+import { getAuthToken, isOfflineDemoSession } from "@/lib/auth";
 import { fetchMerchantProfile, patchMerchantProfile } from "@/lib/dashboard-profile";
 import { connectInjectedSolanaWallet, isValidSolanaAddress } from "@/lib/solana-wallet";
 
@@ -23,6 +24,14 @@ function SettingsPage() {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
+    if (isOfflineDemoSession()) {
+      setName(DEMO_MERCHANT.name);
+      setCity(DEMO_MERCHANT.city);
+      setPayoutWallet(DEMO_MERCHANT.payoutWallet);
+      setEmail(DEMO_MERCHANT.email);
+      setLoading(false);
+      return;
+    }
     const token = getAuthToken();
     if (!token) {
       nav({ to: "/login" });
@@ -53,6 +62,10 @@ function SettingsPage() {
 
   const save = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isOfflineDemoSession()) {
+      setErr("Sample mode — connect API to save settings.");
+      return;
+    }
     const token = getAuthToken();
     if (!token) {
       nav({ to: "/login" });
@@ -97,6 +110,11 @@ function SettingsPage() {
       </div>
 
       <form onSubmit={save} className="mt-8 space-y-5">
+        {isOfflineDemoSession() && (
+          <div className="mono-label text-warning text-sm border border-warning/40 bg-warning/5 px-3 py-2">
+            Sample mode — fields show seeded demo values; saving is disabled.
+          </div>
+        )}
         {email && (
           <div className="mono-label text-muted-foreground">
             Account email <span className="text-foreground">{email}</span> (change via support in MVP)
@@ -116,7 +134,7 @@ function SettingsPage() {
             />
             <button
               type="button"
-              disabled={walletBusy || saving}
+              disabled={walletBusy || saving || isOfflineDemoSession()}
               onClick={async () => {
                 setErr("");
                 setWalletBusy(true);
@@ -150,8 +168,9 @@ function SettingsPage() {
 
         <div className="flex items-center gap-4">
           <button
-            disabled={saving}
-            className="bg-primary text-primary-foreground px-5 py-3 mono-label disabled:opacity-60"
+            type="submit"
+            disabled={saving || isOfflineDemoSession()}
+            className="bg-primary text-primary-foreground px-5 py-3 mono-label disabled:opacity-40"
           >
             {saving ? "Saving…" : "Save to server"}
           </button>

@@ -3,7 +3,8 @@ import { useEffect, useState } from "react";
 import { ChevronDown, ChevronRight } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { apiRequest } from "@/lib/api";
-import { getAuthToken, getMerchantSlug } from "@/lib/auth";
+import { demoCatalogAsUiItems } from "@maxis/demo-data";
+import { getAuthToken, getMerchantSlug, isOfflineDemoSession } from "@/lib/auth";
 
 export const Route = createFileRoute("/dashboard/orders")({
   head: () => ({ meta: [{ title: "Orders — M.A.X.I.S." }] }),
@@ -115,9 +116,22 @@ function OrdersPage() {
   }
 
   useEffect(() => {
+    if (isOfflineDemoSession()) {
+      setLoading(false);
+      setOrders([]);
+      const c = demoCatalogAsUiItems().map((i) => ({
+        id: i.id,
+        name: i.name,
+        usd: i.usd,
+        available: i.available,
+      }));
+      setCatalog(c);
+      if (c.length) setSelectedItem(c[0].id);
+      return;
+    }
     void loadOrders();
     void loadCatalog();
-    // Intentionally once on mount.
+    // Intentionally once on mount (offline branch returns early).
     // eslint-disable-next-line react-hooks/exhaustive-deps -- mount-only
   }, []);
 
@@ -182,23 +196,33 @@ function OrdersPage() {
     }
   }
 
+  const offline = isOfflineDemoSession();
+
   return (
     <div>
       <div className="flex items-center gap-3">
         <span className="size-2 bg-primary" />
         <h1 className="font-mono uppercase tracking-[0.2em] text-sm text-foreground">Orders</h1>
       </div>
-      <div className="text-muted-foreground text-sm mt-1">Live feed · API-backed</div>
+      <div className="text-muted-foreground text-sm mt-1">
+        {offline ? "Sample mode · catalog from fixtures; live orders disabled" : "Live feed · API-backed"}
+      </div>
       {error && <div className="mono-label text-destructive mt-3">{error}</div>}
       {loading && <div className="mono-label text-muted-foreground mt-3">Loading...</div>}
 
       <div className="mt-6 border border-hairline bg-surface-1 p-4">
         <div className="mono-label text-muted-foreground mb-3">Agentic Checkout UI</div>
+        {offline && (
+          <p className="text-xs text-muted-foreground mb-3">
+            Connect API + database to run create order → 402 → pay against a real backend.
+          </p>
+        )}
         <div className="grid md:grid-cols-[2fr_1fr_auto_auto_auto] gap-3 items-end">
           <label className="block">
             <div className="mono-label text-muted-foreground mb-1">Catalog item</div>
             <select
               value={selectedItem}
+              disabled={offline}
               onChange={(e) => setSelectedItem(e.target.value)}
               className="w-full bg-black border border-hairline px-3 py-2 font-mono text-sm"
             >
@@ -215,26 +239,28 @@ function OrdersPage() {
               type="number"
               min={1}
               value={qty}
+              disabled={offline}
               onChange={(e) => setQty(Math.max(1, Number(e.target.value || 1)))}
               className="w-full bg-black border border-hairline px-3 py-2 font-mono text-sm"
             />
           </label>
           <button
             onClick={createAgentOrder}
-            className="border border-hairline px-3 py-2 mono-label"
+            disabled={offline}
+            className="border border-hairline px-3 py-2 mono-label disabled:opacity-40"
           >
             1) Create order
           </button>
           <button
             onClick={request402}
-            disabled={!agentOrderId}
+            disabled={offline || !agentOrderId}
             className="border border-primary text-primary px-3 py-2 mono-label disabled:opacity-50"
           >
             2) Get 402
           </button>
           <button
             onClick={submitPayProof}
-            disabled={!checkout402}
+            disabled={offline || !checkout402}
             className="bg-primary text-primary-foreground px-3 py-2 mono-label disabled:opacity-50"
           >
             3) Submit pay
@@ -295,14 +321,16 @@ function OrdersPage() {
                 {o.status === "PAID" ? (
                   <button
                     onClick={() => updateStatus(o.id, "ACCEPTED")}
-                    className="bg-primary text-primary-foreground px-3 py-1.5 mono-label"
+                    disabled={offline}
+                    className="bg-primary text-primary-foreground px-3 py-1.5 mono-label disabled:opacity-40"
                   >
                     Accept
                   </button>
                 ) : o.status === "ACCEPTED" ? (
                   <button
                     onClick={() => updateStatus(o.id, "READY")}
-                    className="bg-primary text-primary-foreground px-3 py-1.5 mono-label"
+                    disabled={offline}
+                    className="bg-primary text-primary-foreground px-3 py-1.5 mono-label disabled:opacity-40"
                   >
                     Mark ready
                   </button>

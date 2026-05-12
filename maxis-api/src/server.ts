@@ -6,6 +6,7 @@ import { PublicKey } from "@solana/web3.js";
 import { getAssociatedTokenAddressSync, TOKEN_PROGRAM_ID } from "@solana/spl-token";
 import { OrderStatus } from "@prisma/client";
 import type { Prisma } from "@prisma/client";
+import { PrismaClientKnownRequestError } from "@prisma/client/runtime/library";
 import { verifyUsdcPaymentToMerchant } from "./solana-verify.js";
 import { prisma } from "./prisma.js";
 import {
@@ -221,11 +222,23 @@ app.get("/", (_req: Request, res: Response) => {
   });
 });
 
-app.get("/health", (_req: Request, res: Response) => {
+app.get("/health", async (_req: Request, res: Response) => {
+  let database: "ok" | "error" = "ok";
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+  } catch {
+    database = "error";
+  }
   res.json({
     ok: true,
     service: "maxis-api",
+    database,
     onchainPayVerify: ONCHAIN_PAY_VERIFY,
+    ...(database === "error"
+      ? {
+          hint: "PostgreSQL unreachable (check DATABASE_URL, Supabase project not paused, outbound TLS).",
+        }
+      : {}),
   });
 });
 
@@ -858,6 +871,22 @@ app.use((err: unknown, _req: Request, res: Response, _next: NextFunction) => {
       error: err.error,
       ...(err.details ? { details: err.details } : {}),
     });
+    return;
+  }
+
+  if (err instanceof PrismaClientKnownRequestError) {
+    const unreachable = ["P1001", "P1000", "P1017", "P1008"].includes(err.code);
+    if (unreachable) {
+      res.status(503).json({
+        error: "database_unavailable",
+        prismaCode: err.code,
+        message:
+          "Cannot reach PostgreSQL. Confirm DATABASE_URL / DIRECT_URL, Supabase project is resumed, and the DB password in the URL is correct.",
+      });
+      return;
+    }
+    console.error("Prisma error:", err.code, err.message);
+    res.status(500).json({ error: "database_error", prismaCode: err.code });
     return;
   }
 
