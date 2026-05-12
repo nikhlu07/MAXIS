@@ -3,9 +3,9 @@ import { HudPanel, SectionLabel } from "@/components/maxis/HudPanel";
 import { NavBar } from "@/components/maxis/NavBar";
 import { Footer } from "@/components/maxis/Footer";
 import { useState } from "react";
-import { DEMO_MERCHANT } from "@maxis/demo-data";
 import { apiRequest } from "@/lib/api";
 import { saveAuth } from "@/lib/auth";
+import { connectInjectedSolanaWallet, isValidSolanaAddress } from "@/lib/solana-wallet";
 
 export const Route = createFileRoute("/register")({
   head: () => ({ meta: [{ title: "Create account — M.A.X.I.S." }] }),
@@ -18,6 +18,8 @@ function RegisterPage() {
   const [email, setEmail] = useState("");
   const [pw, setPw] = useState("");
   const [city, setCity] = useState("");
+  const [payoutWallet, setPayoutWallet] = useState("");
+  const [walletBusy, setWalletBusy] = useState(false);
   const [err, setErr] = useState("");
   const [loading, setLoading] = useState(false);
   return (
@@ -35,6 +37,14 @@ function RegisterPage() {
                 setErr("Password must be ≥ 8 chars");
                 return;
               }
+              if (shop.trim().length < 2) {
+                setErr("Shop name must be at least 2 characters.");
+                return;
+              }
+              if (!isValidSolanaAddress(payoutWallet)) {
+                setErr("Add a valid Solana payout address (connect wallet or paste).");
+                return;
+              }
               setErr("");
               setLoading(true);
               const slug = shop
@@ -50,10 +60,10 @@ function RegisterPage() {
                     body: JSON.stringify({
                       name: shop,
                       slug: slug || `merchant-${Math.random().toString(36).slice(2, 7)}`,
-                      city: city || "Unknown",
+                      city: city.trim() || "Unknown",
                       email,
                       password: pw,
-                      payoutWallet: DEMO_MERCHANT.payoutWallet,
+                      payoutWallet: payoutWallet.trim(),
                     }),
                   },
                 );
@@ -70,6 +80,40 @@ function RegisterPage() {
             <Field label="Email" type="email" value={email} onChange={setEmail} />
             <Field label="Password (min 8)" type="password" value={pw} onChange={setPw} />
             <Field label="City (optional)" value={city} onChange={setCity} />
+            <div>
+              <div className="mono-label text-muted-foreground mb-1.5">Solana payout address (USDC)</div>
+              <div className="flex flex-col sm:flex-row gap-2">
+                <input
+                  value={payoutWallet}
+                  onChange={(e) => setPayoutWallet(e.target.value.trim())}
+                  placeholder="Connect wallet or paste base58 address"
+                  spellCheck={false}
+                  className="flex-1 bg-black border border-hairline px-3 py-2.5 font-mono text-sm focus:border-primary focus:outline-none focus:ring-1 focus:ring-primary"
+                />
+                <button
+                  type="button"
+                  disabled={walletBusy || loading}
+                  onClick={async () => {
+                    setErr("");
+                    setWalletBusy(true);
+                    try {
+                      const addr = await connectInjectedSolanaWallet();
+                      setPayoutWallet(addr);
+                    } catch (error) {
+                      setErr(error instanceof Error ? error.message : "wallet_connect_failed");
+                    } finally {
+                      setWalletBusy(false);
+                    }
+                  }}
+                  className="shrink-0 border border-hairline px-4 py-2.5 mono-label text-primary hover:border-primary hover:bg-primary/5 disabled:opacity-50"
+                >
+                  {walletBusy ? "Connecting…" : "Connect wallet"}
+                </button>
+              </div>
+              <p className="mt-1.5 text-xs text-muted-foreground">
+                Public address only — where you receive USDC on Solana. Never paste a seed phrase.
+              </p>
+            </div>
             {err && <div className="mono-label text-destructive">{err}</div>}
             <button
               disabled={loading}
