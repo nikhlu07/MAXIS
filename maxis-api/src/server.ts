@@ -65,9 +65,20 @@ const createOrderSchema = z.object({
     .optional(),
 });
 
-const checkoutSchema = z.object({
-  orderId: z.string().min(1),
-});
+const checkoutSchema = z.preprocess(
+  (raw) => {
+    if (raw && typeof raw === "object" && !Array.isArray(raw)) {
+      const o = raw as Record<string, unknown>;
+      if (typeof o.order_id === "string" && o.orderId == null) {
+        return { ...o, orderId: o.order_id };
+      }
+    }
+    return raw;
+  },
+  z.object({
+    orderId: z.string().min(1),
+  }),
+);
 
 const paySchema = z
   .object({

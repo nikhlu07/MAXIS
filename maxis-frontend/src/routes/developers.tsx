@@ -40,31 +40,45 @@ ${apiCatalogExampleJson()}`}</Code>
 
         <Section title="Order route">
           <Code>{`POST /orders
+Content-Type: application/json
+
 {
-  "merchant": "${DEMO_MERCHANT.slug}",
-  "items": [{ "id": "${DEMO_CATALOG_ITEMS[1].id}", "qty": 2 }],
-  "fulfillment": { "type": "pickup", "pickup_at": "2026-05-05T18:00:00Z" }
+  "merchantSlug": "${DEMO_MERCHANT.slug}",
+  "items": [{ "itemId": "${DEMO_CATALOG_ITEMS[1].id}", "qty": 2 }],
+  "fulfillment": { "type": "pickup", "pickupAt": "2026-05-05T18:00:00Z" }
 }
 
 201 CREATED
 {
-  "order_id": "ord_8Hx3...",
-  "total_usd": 11.50,
-  "status": "AWAITING_PAYMENT"
+  "orderId": "ord_8Hx3...",
+  "totalUsd": 11.50,
+  "status": "AWAITING_PAYMENT",
+  "currency": "USD",
+  "fulfillment": { "type": "pickup", "pickupAt": "2026-05-05T18:00:00Z" }
 }`}</Code>
         </Section>
 
         <Section title="Checkout · 402">
-          <Code>{`POST /orders/checkout  { "order_id": "ord_8Hx3..." }
+          <Code>{`POST /orders/checkout
+Content-Type: application/json
+
+{ "orderId": "ord_8Hx3..." }
+
+# Accepted alias: { "order_id": "ord_8Hx3..." }
 
 402 PAYMENT REQUIRED
 {
+  "error": "payment_required",
+  "orderId": "ord_8Hx3...",
+  "paymentRequestId": "pr_...",
+  "amount": "11.50",
+  "currency": "USD",
   "asset": "USDC",
-  "chain": "solana",
-  "network": "mainnet",
-  "to": "9xQk...payout",
-  "amount": 11.50,
-  "memo": "ord_8Hx3..."
+  "chain": "solana-devnet",
+  "recipient": "<merchant payoutWallet>",
+  "reference": "ord_8Hx3...",
+  "expiresAt": "...",
+  "anchor": { "...": "on-chain program + escrow hints" }
 }`}</Code>
         </Section>
 
@@ -75,7 +89,7 @@ ${apiCatalogExampleJson()}`}</Code>
               "Fetch /catalog · cache 60s",
               "Create /orders request for pickup intent",
               "Handle 402 · sign and send USDC tx",
-              "Verify tx and poll /orders/:id until status = READY",
+              "Verify tx and poll GET /orders/:id/status until status = READY",
             ].map((x) => (
               <li key={x} className="flex gap-3">
                 <span className="text-primary font-mono">▸</span>

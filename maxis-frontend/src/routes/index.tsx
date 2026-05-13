@@ -237,11 +237,11 @@ function Landing() {
 ${catalogSnippet}
 
 POST /orders
-→ 201 { "order_id": "ord_8H…", "total_usd": 9.00, "status": "AWAITING_PAYMENT" }
+→ 201 { "orderId": "ord_8H…", "totalUsd": 9.00, "status": "AWAITING_PAYMENT" }
 
 POST /orders/checkout
-→ 402 { "asset": "USDC", "chain": "solana",
-        "to": "9xQ…", "amount": 9.00 }`}
+→ 402 { "error": "payment_required", "amount": "9.00",
+        "recipient": "<payoutWallet>", "chain": "solana-devnet", ... }`}
             </pre>
           </div>
         </div>
