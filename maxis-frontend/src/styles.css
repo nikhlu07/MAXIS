@@ -70,6 +70,21 @@
   * { border-color: var(--color-border); }
   html, body { background: #000; color: var(--color-foreground); font-family: var(--font-sans); }
   ::selection { background: var(--color-primary); color: #000; }
+
+  /* Default browser arrow on links/buttons feels “dead” on a dense UI; restore obvious affordance. */
+  a[href],
+  button:not(:disabled),
+  input[type="button"]:not(:disabled),
+  input[type="submit"]:not(:disabled),
+  input[type="reset"]:not(:disabled),
+  [role="button"]:not([aria-disabled="true"]),
+  summary {
+    cursor: pointer;
+  }
+  button:disabled,
+  [aria-disabled="true"] {
+    cursor: not-allowed;
+  }
 }
 
 @layer utilities {
